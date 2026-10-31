@@ -1,0 +1,647 @@
+"""Piruleta Scoreboard. Python 3.11+, standard library only."""
+import copy
+import json
+from pathlib import Path
+import socket
+import threading
+import time
+import tkinter as tk
+from tkinter import ttk, colorchooser, filedialog, messagebox
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import webbrowser
+from api_config import enable_stats_api
+
+ROOT = Path(__file__).resolve().parent
+DEFAULT = {
+    'event': 'TORNEO PIRULETA', 'round': 'GRAN FINAL', 'game': 1, 'bestof': 5,
+    'teams': [{'name': 'PINK CANDY', 'logo': '', 'wins': 0},
+              {'name': 'GOLDEN POP', 'logo': '', 'wins': 0}],
+    'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
+               'dark': '#181426', 'text': '#ffffff'},
+    'show_logos': True, 'show_players': True, 'show_stats': True,
+    'show_boost': True, 'show_brand': True, 'show_events': True,
+    'design': 'angular', 'font': 'Arial', 'scale': 100, 'opacity': 100,
+    'x': 360, 'y': 24, 'auto_series': True, 'custom_css': '',
+    'panels': {'players0': [24, 235, 100], 'players1': [1601, 235, 100],
+               'focus': [36, 880, 100], 'boost': [1730, 895, 100],
+               'brand': [820, 178, 100], 'banner': [460, 370, 100]},
+}
+
+
+def normalize_config(raw):
+    """Validate profiles before they reach widgets or the overlay."""
+    if not isinstance(raw, dict):
+        raise ValueError('El perfil debe ser un objeto JSON.')
+    c = copy.deepcopy(DEFAULT)
+    for key in ('event', 'round', 'font'):
+        if key in raw:
+            c[key] = str(raw[key])[:120]
+    for key, lo, hi in [('game', 1, 99), ('bestof', 1, 15), ('scale', 50, 150),
+                        ('opacity', 10, 100), ('x', 0, 1900), ('y', 0, 1000)]:
+        c[key] = max(lo, min(hi, int(raw.get(key, c[key]))))
+    if c['bestof'] % 2 == 0:
+        raise ValueError('Mejor de debe ser impar: 1, 3, 5, 7…')
+    for key in c:
+        if key.startswith('show_') or key == 'auto_series':
+            c[key] = bool(raw.get(key, c[key]))
+    if raw.get('design') in ('angular', 'rounded', 'classic'):
+        c['design'] = raw['design']
+    c['custom_css'] = str(raw.get('custom_css', ''))[:50000]
+    for key, values in raw.get('panels', {}).items():
+        if key in c['panels'] and isinstance(values, list) and len(values) == 3:
+            c['panels'][key] = [max(0, min(1920, int(values[0]))),
+                                max(0, min(1080, int(values[1]))),
+                                max(25, min(200, int(values[2])))]
+    for key, value in raw.get('colors', {}).items():
+        if key in c['colors'] and isinstance(value, str) and len(value) == 7:
+            int(value[1:], 16)
+            if value.startswith('#'):
+                c['colors'][key] = value
+    for i, team in enumerate(raw.get('teams', [])[:2]):
+        c['teams'][i] = {'name': str(team.get('name', 'EQUIPO'))[:80],
+                         'logo': str(team.get('logo', ''))[:2000000],
+                         'wins': max(0, min(c['bestof']//2+1, int(team.get('wins', 0))))}
+    return c
+
+
+class Store:
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.config = copy.deepcopy(DEFAULT)
+        self.match = {'scores': [0, 0], 'time': 300, 'overtime': False,
+                      'players': [], 'target': '', 'banner': ''}
+        self.status = 'Manual · sin conexión al juego'
+        self.finished = set()
+        self.banner_until = 0
+        self.automatic = False
+        self.last_update = 0
+
+    def snapshot(self):
+        with self.lock:
+            if time.monotonic() > self.banner_until:
+                self.match['banner'] = ''
+            return copy.deepcopy({'config': self.config, 'match': self.match,
+                                  'connection': {'automatic': self.automatic,
+                                                 'receiving': self.last_update > 0 and time.monotonic()-self.last_update < 5,
+                                                 'status': self.status}})
+
+    def ingest(self, packet):
+        event, d = packet.get('Event'), packet.get('Data', {})
+        if not isinstance(d, dict):
+            return
+        with self.lock:
+            m = self.match
+            if event == 'UpdateState':
+                self.last_update = time.monotonic()
+                g = d.get('Game', {})
+                for t in g.get('Teams', []):
+                    i = t.get('TeamNum')
+                    if i in (0, 1):
+                        m['scores'][i] = max(0, int(t.get('Score', 0)))
+                m['time'] = int(g.get('TimeSeconds', m['time']))
+                m['overtime'] = bool(g.get('bOvertime', False))
+                m['players'] = [p for p in d.get('Players', []) if p.get('TeamNum') in (0, 1)]
+                m['target'] = g.get('Target', {}).get('Name', '')
+            elif event == 'ClockUpdatedSeconds':
+                m['time'] = int(d.get('TimeSeconds', 0))
+                m['overtime'] = bool(d.get('bOvertime', False))
+            elif event == 'GoalScored':
+                m['banner'] = '¡GOL! · ' + d.get('Scorer', {}).get('Name', '')
+                self.banner_until = time.monotonic() + 4
+            elif event == 'MatchEnded':
+                winner, guid = d.get('WinnerTeamNum'), d.get('MatchGuid')
+                if winner in (0, 1):
+                    m['banner'] = 'VICTORIA · ' + self.config['teams'][winner]['name']
+                    self.banner_until = time.monotonic() + 12
+                    if self.config['auto_series'] and guid and guid not in self.finished:
+                        self.finished.add(guid)
+                        team = self.config['teams'][winner]
+                        team['wins'] = min(self.config['bestof']//2+1, team['wins']+1)
+                        self.config['game'] = min(self.config['bestof'], sum(t['wins'] for t in self.config['teams'])+1)
+            elif event == 'MatchDestroyed':
+                m['players'], m['target'] = [], ''
+
+
+class GameConnection:
+    """Official TCP Stats API; handles concatenated/fragmented JSON objects."""
+    def __init__(self, store):
+        self.store = store
+        self.stop = threading.Event()
+        self.thread = None
+
+    def connect(self, port):
+        self.disconnect()
+        self.store.automatic = True
+        self.store.last_update = 0
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self.run, args=(port, self.stop), daemon=True)
+        self.thread.start()
+
+    def disconnect(self):
+        self.stop.set()
+        if self.thread:
+            self.thread.join(timeout=2)
+        self.store.status = 'Manual · sin conexión al juego'
+        self.store.automatic = False
+        self.store.last_update = 0
+
+    def run(self, port, stop):
+        decoder = json.JSONDecoder()
+        while not stop.is_set():
+            self.store.status = 'Conectando a Rocket League…'
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=1) as sock:
+                    sock.settimeout(.5)
+                    self.store.status = 'Conectado · esperando datos del partido'
+                    buf = b''
+                    while not stop.is_set():
+                        try:
+                            chunk = sock.recv(65536)
+                        except socket.timeout:
+                            if self.store.last_update and time.monotonic()-self.store.last_update > 5:
+                                self.store.status = 'Conectado · sin datos recientes (menú o partido finalizado)'
+                            continue
+                        if not chunk:
+                            break
+                        buf += chunk
+                        # Decode only complete UTF-8 sequences; JSON can span packets.
+                        try:
+                            text = buf.decode('utf-8')
+                        except UnicodeDecodeError:
+                            continue
+                        text = text.lstrip('\x00\ufeff\r\n ')
+                        while text:
+                            try:
+                                packet, end = decoder.raw_decode(text)
+                            except json.JSONDecodeError:
+                                break
+                            if isinstance(packet, dict):
+                                self.store.ingest(packet)
+                                if packet.get('Event') == 'UpdateState':
+                                    self.store.status = 'En directo · tiempo y goles sincronizados con Rocket League'
+                            text = text[end:].lstrip('\x00\r\n ')
+                        buf = text.encode('utf-8')
+                        if len(buf) > 4_000_000:
+                            raise ValueError('Formato TCP no reconocido')
+            except (OSError, ValueError, TypeError) as exc:
+                self.store.status = f'Sin conexión · {exc}'
+            if not stop.is_set():
+                self.store.last_update = 0
+                self.store.status = 'Esperando Rocket League · reconexión automática'
+                stop.wait(2)
+
+
+def make_server(store, port=0):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            route = self.path.split('?')[0]
+            if route == '/state':
+                data = json.dumps(store.snapshot(), ensure_ascii=False).encode('utf-8')
+                mime = 'application/json; charset=utf-8'
+            elif route in ('/', '/overlay'):
+                data = (ROOT / 'overlay.html').read_bytes()
+                mime = 'text/html; charset=utf-8'
+            elif route in ('/assets/torneo.png', '/assets/discord.png'):
+                data = (ROOT / route.lstrip('/')).read_bytes()
+                mime = 'image/png'
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            try:
+                self.wfile.write(data)
+            except (ConnectionResetError, BrokenPipeError):
+                pass
+    return ThreadingHTTPServer(('127.0.0.1', port), Handler)
+
+
+class App:
+    def __init__(self, root):
+        self.root, self.store = root, Store()
+        self.connection = GameConnection(self.store)
+        self.file = ROOT / 'ultimo_perfil.json'
+        if self.file.exists():
+            try:
+                self.store.config = normalize_config(json.loads(self.file.read_text('utf-8')))
+            except (ValueError, TypeError, KeyError):
+                pass
+        try:
+            self.server = make_server(self.store, 18765)
+        except OSError:
+            self.server = make_server(self.store)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f'http://127.0.0.1:{self.server.server_port}/overlay'
+        root.title('Piruleta Studio · Marcador Rocket League')
+        root.geometry('1280x850')
+        root.minsize(1050, 730)
+        root.configure(bg='#12101a')
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('.', background='#201b2c', foreground='#f7effa', font=('Segoe UI', 10))
+        style.configure('TEntry', fieldbackground='#30283d', foreground='white', insertcolor='white')
+        style.configure('TSpinbox', fieldbackground='#30283d', foreground='white', arrowsize=14)
+        style.configure('TCombobox', fieldbackground='#30283d', foreground='white')
+        style.map('TCombobox', fieldbackground=[('readonly', '#30283d')], foreground=[('readonly', 'white')])
+        style.configure('TButton', padding=(12, 8), background='#3e304a')
+        style.map('TButton', background=[('active', '#75435d')])
+        style.configure('TNotebook.Tab', padding=(14, 10))
+        self.vars, self.team_vars = {}, [{}, {}]
+        self.last_game = self.store.config['game']
+        head = tk.Frame(root, bg='#12101a')
+        head.pack(fill='x', padx=24, pady=(20, 12))
+        tk.Label(head, text='PIRULETA / STUDIO', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
+        ttk.Button(head, text='Abrir vista previa', command=lambda: webbrowser.open(self.url+'?preview=1')).pack(side='right', padx=4)
+        ttk.Button(head, text='Copiar URL para OBS', command=self.copy_url).pack(side='right', padx=4)
+        body = ttk.Frame(root)
+        body.pack(fill='both', expand=True, padx=24)
+        left = ttk.Frame(body, padding=12)
+        left.pack(side='left', fill='both', expand=True)
+        right = ttk.Frame(body, padding=16, width=395)
+        right.pack(side='right', fill='y')
+        ttk.Label(left, text='DISEÑO EN DIRECTO', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+        self.canvas = tk.Canvas(left, bg='#141720', height=290, highlightthickness=0)
+        self.canvas.pack(fill='x', pady=(10, 12))
+        self.canvas.bind('<Configure>', lambda e: self.draw())
+        ttk.Label(left, text='Esquema del marcador · abre la vista previa para ver el diseño completo', font=('Segoe UI', 9)).pack(anchor='w')
+        nb = ttk.Notebook(left)
+        nb.pack(fill='both', expand=True, pady=12)
+        teams, design, visibility, layout, advanced = (ttk.Frame(nb, padding=15) for _ in range(5))
+        nb.add(teams, text='Equipos y torneo')
+        nb.add(design, text='Diseño')
+        nb.add(visibility, text='Elementos')
+        nb.add(layout, text='Posiciones')
+        nb.add(advanced, text='CSS libre')
+        self.panel_vars = {}
+        ttk.Label(layout, text='Panel                       X               Y          Escala %').pack(anchor='w')
+        for key, label in [('players0', 'Jugadores A'), ('players1', 'Jugadores B'), ('focus', 'Estadísticas'), ('boost', 'Turbo'), ('brand', 'Marca'), ('banner', 'Avisos')]:
+            row = ttk.Frame(layout)
+            row.pack(fill='x', pady=5)
+            ttk.Label(row, text=label, width=20).pack(side='left')
+            values = []
+            for j, value in enumerate(self.store.config['panels'][key]):
+                var = tk.StringVar(value=str(value))
+                ttk.Spinbox(row, from_=25 if j == 2 else 0, to=200 if j == 2 else 1920, width=7, textvariable=var).pack(side='left', padx=5)
+                values.append(var)
+            self.panel_vars[key] = values
+        ttk.Label(advanced, text='Estilos propios para cualquier detalle del overlay (opcional).').pack(anchor='w')
+        self.css = tk.Text(advanced, height=9, bg='#181426', fg='white', insertbackground='white', font=('Consolas', 10), wrap='word')
+        self.css.pack(fill='both', expand=True, pady=8)
+        self.css.insert('1.0', self.store.config['custom_css'])
+        self.entry(teams, 'Nombre del torneo', 'event')
+        self.entry(teams, 'Fase / ronda', 'round')
+        self.entry(teams, 'Partido de la serie', 'game', numeric=(1, 99))
+        self.entry(teams, 'Mejor de (impar)', 'bestof', numeric=(1, 15))
+        for i in range(2):
+            row = ttk.Frame(teams)
+            row.pack(fill='x', pady=7)
+            ttk.Label(row, text=f'Equipo {i+1}', width=20).pack(side='left')
+            v = tk.StringVar(value=self.store.config['teams'][i]['name'])
+            self.team_vars[i]['name'] = v
+            ttk.Entry(row, textvariable=v).pack(side='left', fill='x', expand=True)
+            ttk.Button(row, text='Escudo…', command=lambda i=i: self.logo(i)).pack(side='left', padx=4)
+            ttk.Button(row, text='Quitar', command=lambda i=i: self.clear_logo(i)).pack(side='left')
+        colorrow = ttk.Frame(design)
+        colorrow.pack(fill='x', pady=5)
+        for key, title in [('pink', 'Rosa / A'), ('coral', 'Coral'), ('yellow', 'Dorado / B'), ('dark', 'Fondo'), ('text', 'Texto')]:
+            ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).pack(side='left', padx=2)
+        self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic'])
+        self.entry(design, 'Tipografía', 'font', choices=['Arial', 'Segoe UI', 'Verdana', 'Trebuchet MS', 'Impact'])
+        self.entry(design, 'Escala (%)', 'scale', numeric=(50, 150))
+        self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
+        self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
+        self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Jugadores y barras de turbo'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_brand', 'Marca del torneo'), ('show_events', 'Avisos de gol y victoria'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+            v = tk.BooleanVar(value=self.store.config[k])
+            self.vars[k] = v
+            ttk.Checkbutton(visibility, text=label, variable=v, command=self.apply).pack(anchor='w', pady=5)
+        ttk.Button(left, text='Aplicar diseño', command=self.apply).pack(anchor='e')
+        ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 14))
+        self.score_labels, self.win_labels, self.manual_controls = [], [], []
+        for i in range(2):
+            ttk.Label(right, text=f'EQUIPO {i+1} · GOLES / SERIE').pack(anchor='w', pady=(12, 4))
+            row = ttk.Frame(right)
+            row.pack(fill='x')
+            button = ttk.Button(row, text='−', command=lambda i=i: self.goal(i, -1))
+            button.pack(side='left')
+            self.manual_controls.append(button)
+            label = ttk.Label(row, text='0', font=('Segoe UI', 25, 'bold'), width=3, anchor='center')
+            label.pack(side='left', padx=8)
+            self.score_labels.append(label)
+            button = ttk.Button(row, text='+', command=lambda i=i: self.goal(i, 1))
+            button.pack(side='left')
+            self.manual_controls.append(button)
+            label = ttk.Label(row, text='Serie 0', width=7, anchor='center')
+            label.pack(side='left', padx=4)
+            self.win_labels.append(label)
+            ttk.Button(row, text='−', command=lambda i=i: self.win(i, -1)).pack(side='left')
+            ttk.Button(row, text='+', command=lambda i=i: self.win(i, 1)).pack(side='left')
+        timer = ttk.Frame(right)
+        timer.pack(fill='x', pady=(25, 8))
+        self.clock = tk.StringVar(value='5:00')
+        entry = ttk.Entry(timer, textvariable=self.clock, width=9, font=('Segoe UI', 20))
+        entry.pack(side='left')
+        button = ttk.Button(timer, text='Fijar tiempo', command=self.set_time)
+        button.pack(side='left', padx=6)
+        self.manual_controls.extend([entry, button])
+        self.running = False
+        self.run_button = ttk.Button(right, text='▶ Iniciar reloj manual', command=self.toggle_clock)
+        self.run_button.pack(fill='x', pady=4)
+        self.manual_controls.append(self.run_button)
+        self.ot = tk.BooleanVar()
+        button = ttk.Checkbutton(right, text='Prórroga', variable=self.ot, command=self.set_overtime)
+        button.pack(anchor='w', pady=5)
+        self.manual_controls.append(button)
+        button = ttk.Button(right, text='Nuevo partido (5:00 · 0–0)', command=self.new_match)
+        button.pack(fill='x', pady=4)
+        self.manual_controls.append(button)
+        ttk.Button(right, text='Reiniciar serie', command=self.reset_series).pack(fill='x', pady=4)
+        ttk.Button(right, text='Cargar muestra de jugadores', command=self.demo).pack(fill='x', pady=4)
+        ttk.Separator(right).pack(fill='x', pady=18)
+        ttk.Label(right, text='DATOS DE ROCKET LEAGUE', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+        row = ttk.Frame(right)
+        row.pack(fill='x', pady=10)
+        ttk.Label(row, text='Puerto TCP').pack(side='left')
+        self.port = tk.StringVar(value='49123')
+        ttk.Entry(row, textvariable=self.port, width=8).pack(side='left', padx=8)
+        ttk.Button(row, text='Conectar', command=self.connect).pack(side='left')
+        ttk.Button(right, text='Desconectar / modo manual', command=self.disconnect).pack(fill='x')
+        ttk.Button(right, text='Activar API en el juego…', command=self.configure_api).pack(fill='x', pady=3)
+        ttk.Button(right, text='Cómo conectar el juego y OBS', command=self.help).pack(fill='x', pady=6)
+        ttk.Separator(right).pack(fill='x', pady=15)
+        ttk.Button(right, text='Guardar perfil…', command=self.save).pack(fill='x', pady=3)
+        ttk.Button(right, text='Cargar perfil…', command=self.load).pack(fill='x', pady=3)
+        self.status = tk.Label(root, bg='#12101a', fg='#ffce72', anchor='w', padx=24, pady=13)
+        self.status.pack(fill='x')
+        self.root.protocol('WM_DELETE_WINDOW', self.close)
+        self.last_tick = time.monotonic()
+        self.connect()
+        self.refresh()
+
+    def entry(self, parent, title, key, numeric=None, choices=None):
+        row = ttk.Frame(parent)
+        row.pack(fill='x', pady=4)
+        ttk.Label(row, text=title, width=23).pack(side='left')
+        v = tk.StringVar(value=str(self.store.config[key]))
+        self.vars[key] = v
+        if numeric:
+            w = ttk.Spinbox(row, from_=numeric[0], to=numeric[1], textvariable=v, width=10)
+        elif choices:
+            w = ttk.Combobox(row, values=choices, textvariable=v, state='readonly')
+            w.bind('<<ComboboxSelected>>', lambda e: self.apply())
+        else:
+            w = ttk.Entry(row, textvariable=v)
+        w.pack(side='left', fill='x', expand=True)
+        w.bind('<Return>', lambda e: self.apply())
+
+    def apply(self):
+        try:
+            with self.store.lock:
+                raw = copy.deepcopy(self.store.config)
+                for k, v in self.vars.items():
+                    raw[k] = v.get()
+                for i in range(2):
+                    raw['teams'][i]['name'] = self.team_vars[i]['name'].get()
+                raw['panels'] = {k: [v.get() for v in values] for k, values in self.panel_vars.items()}
+                raw['custom_css'] = self.css.get('1.0', 'end-1c')
+                self.store.config = normalize_config(raw)
+            self.draw()
+            return True
+        except (ValueError, TypeError) as exc:
+            messagebox.showerror('Revisa el diseño', str(exc))
+            return False
+
+    def sync(self):
+        c = self.store.config
+        for k, v in self.vars.items():
+            v.set(c[k])
+        for i in range(2):
+            self.team_vars[i]['name'].set(c['teams'][i]['name'])
+        for k, values in self.panel_vars.items():
+            for j, v in enumerate(values):
+                v.set(c['panels'][k][j])
+        self.css.delete('1.0', 'end')
+        self.css.insert('1.0', c['custom_css'])
+        self.draw()
+
+    def color(self, key):
+        color = colorchooser.askcolor(self.store.config['colors'][key], parent=self.root)[1]
+        if color:
+            with self.store.lock:
+                self.store.config['colors'][key] = color
+            self.draw()
+
+    def logo(self, i):
+        import base64
+        path = filedialog.askopenfilename(filetypes=[('Imagen PNG / JPG', '*.png *.jpg *.jpeg')])
+        if path:
+            data = Path(path).read_bytes()
+            if len(data) > 1_400_000:
+                messagebox.showerror('Imagen grande', 'Utiliza un escudo de menos de 1,4 MB.')
+                return
+            mime = 'image/png' if Path(path).suffix.lower() == '.png' else 'image/jpeg'
+            with self.store.lock:
+                self.store.config['teams'][i]['logo'] = f'data:{mime};base64,' + base64.b64encode(data).decode()
+
+    def clear_logo(self, i):
+        with self.store.lock:
+            self.store.config['teams'][i]['logo'] = ''
+
+    def goal(self, i, delta):
+        if self.store.automatic:
+            return
+        with self.store.lock:
+            self.store.match['scores'][i] = max(0, self.store.match['scores'][i]+delta)
+        self.draw()
+
+    def win(self, i, delta):
+        with self.store.lock:
+            t = self.store.config['teams'][i]
+            t['wins'] = max(0, min(self.store.config['bestof']//2+1, t['wins']+delta))
+        self.draw()
+
+    def set_time(self):
+        if self.store.automatic:
+            return
+        try:
+            mm, ss = map(int, self.clock.get().lstrip('+').split(':'))
+            if mm < 0 or not 0 <= ss <= 59:
+                raise ValueError()
+            with self.store.lock:
+                self.store.match['time'] = mm*60+ss
+            self.draw()
+        except ValueError:
+            messagebox.showerror('Tiempo', 'Escribe minutos:segundos, por ejemplo 4:30.')
+
+    def toggle_clock(self):
+        if self.connection.thread and self.connection.thread.is_alive():
+            messagebox.showinfo('Reloj automático', 'Desconecta los datos del juego para usar el reloj manual.')
+            return
+        self.running = not self.running
+        self.last_tick = time.monotonic()
+        self.run_button.configure(text='Ⅱ Pausar reloj manual' if self.running else '▶ Iniciar reloj manual')
+
+    def set_overtime(self):
+        if self.store.automatic:
+            return
+        with self.store.lock:
+            self.store.match['overtime'] = self.ot.get()
+
+    def new_match(self):
+        if self.store.automatic:
+            return
+        self.running = False
+        self.run_button.configure(text='▶ Iniciar reloj manual')
+        with self.store.lock:
+            self.store.match.update(scores=[0, 0], time=300, overtime=False, banner='')
+        self.ot.set(False)
+        self.clock.set('5:00')
+        self.draw()
+
+    def reset_series(self):
+        with self.store.lock:
+            for team in self.store.config['teams']:
+                team['wins'] = 0
+            self.store.config['game'] = 1
+        self.vars['game'].set('1')
+        self.draw()
+
+    def demo(self):
+        self.disconnect()
+        self.store.ingest({'Event': 'UpdateState', 'Data': {
+            'Game': {'TimeSeconds': 193, 'Teams': [{'TeamNum': 0, 'Score': 2}, {'TeamNum': 1, 'Score': 1}], 'Target': {'Name': 'PIRU'}},
+            'Players': [{'Name': n, 'TeamNum': i//3, 'Boost': b, 'Score': 125+i*32, 'Goals': i%2, 'Shots': 3, 'Assists': 1, 'Saves': 2}
+                        for i, (n, b) in enumerate([('PIRU', 72), ('CANDY', 38), ('FRESA', 100), ('MANGO', 54), ('POP', 8), ('LIMÓN', 91)])]}})
+        self.store.status = 'Muestra · datos ficticios de jugadores'
+        self.draw()
+
+    def connect(self):
+        try:
+            port = int(self.port.get())
+            if not 1 <= port <= 65535:
+                raise ValueError()
+        except ValueError:
+            messagebox.showerror('Puerto', 'Introduce un puerto entre 1 y 65535.')
+            return
+        self.running = False
+        self.run_button.configure(text='▶ Iniciar reloj manual')
+        self.connection.connect(port)
+
+    def disconnect(self):
+        self.connection.disconnect()
+
+    def configure_api(self):
+        path = filedialog.askopenfilename(title='Con Rocket League cerrado: selecciona TAStatsAPI.ini o DefaultStatsAPI.ini',
+                                          filetypes=[('Configuración de Stats API', '*StatsAPI.ini')])
+        if not path:
+            return
+        try:
+            backup, port = enable_stats_api(Path(path))
+            self.port.set(str(port))
+            self.connect()
+            messagebox.showinfo('API activada', f'Configuración guardada.\nCopia de seguridad: {backup}\n\n'
+                                'Inicia o reinicia Rocket League. La aplicación se conectará automáticamente.')
+        except (OSError, ValueError) as exc:
+            messagebox.showerror('No se pudo activar la API', str(exc))
+
+    def copy_url(self):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.url)
+        messagebox.showinfo('URL copiada', self.url+'\n\nOBS → Fuente de navegador → 1920 × 1080.\nMantén Piruleta Studio abierto.')
+
+    def help(self):
+        messagebox.showinfo('Juego y OBS',
+            '1. Cierra Rocket League.\n2. En la carpeta del juego abre TAGame\\Config\\TAStatsAPI.ini '
+            '(o DefaultStatsAPI.ini si no existe).\n3. En [TAGame.MatchStatsExporter_TA] configura:\n\n'
+            'PacketSendRate=10\nPort=49123\nWebPort=49124\n\n4. Abre el juego y pulsa Conectar. '
+            'Las barras de turbo requieren modo espectador.\n\n5. OBS: añade una Fuente de navegador con '
+            'la URL copiada, ancho 1920 y alto 1080. El fondo es transparente.\n\n'
+            'Guía completa: LÉEME.md en la carpeta de la aplicación.')
+
+    def save(self):
+        if not self.apply():
+            return
+        path = filedialog.asksaveasfilename(defaultextension='.json', filetypes=[('Perfil Piruleta', '*.json')])
+        if path:
+            Path(path).write_text(json.dumps(self.store.snapshot()['config'], ensure_ascii=False, indent=2), 'utf-8')
+
+    def load(self):
+        path = filedialog.askopenfilename(filetypes=[('Perfil Piruleta', '*.json')])
+        if path:
+            try:
+                c = normalize_config(json.loads(Path(path).read_text('utf-8')))
+                with self.store.lock:
+                    self.store.config = c
+                self.sync()
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
+                messagebox.showerror('No se pudo cargar', str(exc))
+
+    def draw(self):
+        if not hasattr(self, 'canvas'):
+            return
+        canvas = self.canvas
+        canvas.delete('all')
+        w = max(600, canvas.winfo_width())
+        s = self.store.snapshot()
+        c, m = s['config'], s['match']
+        a, b = c['colors']['pink'], c['colors']['yellow']
+        canvas.create_text(w/2, 30, text=c['event'], fill='#b6a4c3', font=('Segoe UI', 10, 'bold'))
+        canvas.create_rectangle(25, 57, w/2-48, 115, fill=a, outline='')
+        canvas.create_rectangle(w/2+48, 57, w-25, 115, fill=b, outline='')
+        canvas.create_rectangle(w/2-48, 57, w/2+48, 115, fill='white', outline='')
+        for i in range(2):
+            x = 40 if i == 0 else w-40
+            canvas.create_text(x, 85, text=c['teams'][i]['name'][:19], fill='#181426', anchor='w' if i==0 else 'e', font=('Segoe UI', 12, 'bold'))
+            canvas.create_text(w/2 + (-75 if i==0 else 75), 85, text=m['scores'][i], fill='#181426', font=('Segoe UI', 24, 'bold'))
+        sec = abs(int(m['time']))
+        clock = ('+' if m['overtime'] else '')+f'{sec//60}:{sec%60:02}'
+        canvas.create_text(w/2, 85, text=clock, fill='#181426', font=('Segoe UI', 19, 'bold'))
+        canvas.create_text(w/2, 136, text=f"{c['round']} · PARTIDO {c['game']} · BO{c['bestof']}", fill='white', font=('Segoe UI', 9))
+        canvas.create_text(w/2, 220, text='PIRULETA', fill='#fa54b7', font=('Segoe UI', 27, 'bold'))
+        for i in range(2):
+            self.score_labels[i].configure(text=str(m['scores'][i]))
+            self.win_labels[i].configure(text=f"Serie {c['teams'][i]['wins']}")
+
+    def refresh(self):
+        now = time.monotonic()
+        automatic = self.store.automatic
+        for control in self.manual_controls:
+            control.state(['disabled'] if automatic else ['!disabled'])
+        if automatic:
+            self.running = False
+            m = self.store.snapshot()['match']
+            seconds = abs(int(m['time']))
+            self.clock.set(('+' if m['overtime'] else '')+f'{seconds//60}:{seconds%60:02}')
+            self.ot.set(m['overtime'])
+        if self.store.config['game'] != self.last_game:
+            self.last_game = self.store.config['game']
+            self.vars['game'].set(str(self.last_game))
+        if self.running and now-self.last_tick >= 1:
+            elapsed = int(now-self.last_tick)
+            self.last_tick += elapsed
+            with self.store.lock:
+                m = self.store.match
+                m['time'] = m['time']+elapsed if m['overtime'] else max(0, m['time']-elapsed)
+                if m['time'] == 0 and not m['overtime']:
+                    self.running = False
+                    self.run_button.configure(text='▶ Iniciar reloj manual')
+        self.status.configure(text='● '+self.store.status+'     |     OBS: '+self.url)
+        self.draw()
+        self.root.after(250, self.refresh)
+
+    def close(self):
+        if self.apply():
+            self.file.write_text(json.dumps(self.store.snapshot()['config'], ensure_ascii=False, indent=2), 'utf-8')
+        self.connection.disconnect()
+        self.server.shutdown()
+        self.root.destroy()
+
+
+if __name__ == '__main__':
+    App(tk.Tk()).root.mainloop()
