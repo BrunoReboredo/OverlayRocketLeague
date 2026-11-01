@@ -12,6 +12,7 @@ También puedes ejecutar `python app.py` desde esta carpeta. Mantén la aplicaci
 
 - **Textos:** edición manual de nombres, escudos PNG/JPG, torneo, fase y número de partido.
 - **Diseño:** cinco colores, tres estilos, tipografía, escala, opacidad y posición del marcador superior en un lienzo de 1920 × 1080.
+- **Fondos:** colores del turbo, estadísticas y paneles de jugadores vinculados a la paleta principal; cada panel puede elegir un color diferente. Se guardan en el perfil.
 - **Elementos:** checks para activar o desactivar escudos, jugadores, estadísticas, turbo, marca y avisos. Check marcado significa función activa.
 - **Posiciones:** coordenadas y escala independiente de los paneles de jugadores, estadísticas, turbo, marca y avisos.
 - **CSS libre:** ajustar cualquier detalle del diseño con estilos propios opcionales.
@@ -22,6 +23,8 @@ Pulsa **Aplicar diseño** para publicar cambios de campos de texto y números. L
 El esquema integrado resume el marcador; **Abrir vista previa** muestra el diseño completo en el navegador.
 **Ver estadísticas y turbo** abre una vista ampliada con datos ficticios sin desconectar la API ni alterar el partido real. La vista previa general también utiliza datos de ejemplo aislados.
 Los colores iniciales están aproximados de las imágenes aportadas: rosa `#FA54B7`, coral `#FF8875`, amarillo `#FFD14C`, fondo `#181426`, blanco.
+
+El marcador se coloca en el borde superior. El turbo observado parte de una escala del 120 %, y los laterales muestran nombres, valores y barras de turbo de ambos equipos. El valor cero se muestra como **0**. Se han eliminado los mensajes de gol y de su autor; los goles siguen sincronizados con el juego.
 
 ## OBS
 

@@ -11,6 +11,24 @@ from app import Store, GameConnection, make_server, normalize_config, series_sta
 
 
 class ScoreboardTests(unittest.TestCase):
+    def test_panel_palette_survives_profiles_and_old_profiles_still_load(self):
+        config = normalize_config({'panel_colors': {'boost': 'pink', 'stats': 'coral',
+                                                    'players0': 'dark', 'players1': 'yellow'}})
+        loaded = normalize_config(json.loads(json.dumps(config)))
+        self.assertEqual(loaded['panel_colors'], config['panel_colors'])
+        legacy = normalize_config({'event': 'Mi torneo'})
+        self.assertEqual(legacy['panel_colors']['boost'], 'dark')
+        self.assertEqual(normalize_config({'panel_colors': {'boost': 'bad'}})['panel_colors']['boost'], 'dark')
+
+    def test_goal_does_not_display_scorer_or_interrupt_score_sync(self):
+        store = Store()
+        store.match['banner'] = 'Previous message'
+        store.banner_until = time.monotonic()+10
+        store.ingest({'Event': 'GoalScored', 'Data': json.dumps({'Scorer': {'Name': 'Scorer'}})})
+        self.assertEqual(store.snapshot()['match']['banner'], '')
+        store.ingest({'Event': 'UpdateState', 'Data': json.dumps({'Game': {
+            'TimeSeconds': 80, 'Teams': [{'TeamNum': 0, 'Score': 2}, {'TeamNum': 1, 'Score': 1}]}})})
+        self.assertEqual(store.match['scores'], [2, 1])
     def test_real_wire_data_is_json_text(self):
         store = Store()
         # Structure observed from the game over TCP: Data is a JSON string.
@@ -58,6 +76,9 @@ class ScoreboardTests(unittest.TestCase):
         self.assertEqual(store.match['players'][0]['Boost'], 0)
         self.assertNotIn('Boost', store.match['players'][1])
         self.assertNotIn('Boost', data['Players'][0])
+        data['Players'][0]['Boost'] = None
+        store.ingest({'Event': 'UpdateState', 'Data': json.dumps(data)})
+        self.assertEqual(store.match['players'][0]['Boost'], 0)
         data['Game']['Target'] = None
         self.assertTrue(store.ingest({'Event': 'UpdateState', 'Data': json.dumps(data)}))
         self.assertEqual(store.match['target'], '')

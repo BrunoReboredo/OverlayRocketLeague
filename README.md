@@ -92,6 +92,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 | --- | --- |
 | **Textos** | Edición manual del nombre del torneo, ronda, partido de la serie, nombres de equipos y escudos. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
+| **Fondos** | Fondo del turbo, caja de estadísticas y jugadores de cada equipo, vinculados a los colores de la paleta principal. |
 | **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
@@ -99,6 +100,10 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 Pulsa **Aplicar diseño** después de editar campos de texto, números, posiciones o CSS. Los colores y las casillas se aplican al instante.
 
 Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de menos de 1,4 MB. En **Control del partido → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
+
+El marcador parte del borde superior. El turbo del jugador observado tiene una escala inicial del 120 %. Los paneles laterales muestran el turbo de todos los jugadores, con nombre, valor numérico y barra; el equipo derecho aparece reflejado. El turbo cero se muestra como **0**. Los mensajes de gol y de su autor están desactivados; el resultado sigue actualizándose desde la API.
+
+En **Fondos**, elige **Fondo principal**, **Equipo A**, **Color central**, **Equipo B** o **Color del texto** para cada panel. Al cambiar la paleta en **Diseño**, los fondos vinculados se actualizan también. El texto se adapta a los fondos claros para conservar la legibilidad. Estas opciones se guardan en los perfiles.
 
 El esquema dentro del panel resume el marcador. Para comprobar el resultado completo, usa la vista previa del navegador.
 
