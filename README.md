@@ -153,7 +153,7 @@ Los perfiles no guardan el estado completo del partido ni el puerto de conexión
 
 ## Estado del proyecto
 
-La recepción de datos, la configuración del INI y la fuente del overlay tienen pruebas automáticas. Queda pendiente la validación completa con un partido real y una emisión en OBS.
+La recepción de datos, la configuración del INI y la fuente del overlay tienen pruebas automáticas. La sincronización del reloj, los goles, las estadísticas y el turbo se ha comprobado con un partido real y en la vista previa de OBS.
 
 Esta versión no incluye instalador independiente, editor con arrastre, escenas de prepartido ni importación de temas de BARL. Tampoco modifica la apariencia del balón dentro del juego.
 

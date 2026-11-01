@@ -11,6 +11,57 @@ from app import Store, GameConnection, make_server, normalize_config, series_sta
 
 
 class ScoreboardTests(unittest.TestCase):
+    def test_real_wire_data_is_json_text(self):
+        store = Store()
+        # Structure observed from the game over TCP: Data is a JSON string.
+        def packet(scores, seconds, boost, score):
+            return {'Event': 'UpdateState', 'Data': json.dumps({
+                'Players': [{'Name': 'Jugador en cámara', 'TeamNum': 0, 'Shortcut': 3,
+                             'Score': score, 'Goals': 1, 'Shots': 2, 'Assists': 0,
+                             'Saves': 2, 'Boost': boost}],
+                'Game': {'Teams': [{'TeamNum': i, 'Score': value} for i, value in enumerate(scores)],
+                         'TimeSeconds': seconds, 'bOvertime': False,
+                         'Target': {'Name': 'Jugador en cámara', 'Shortcut': 3, 'TeamNum': 0}}
+            }, ensure_ascii=False)}
+        self.assertTrue(store.ingest(packet([1, 1], 228, 85, 88)))
+        first = store.snapshot()
+        self.assertEqual(first['match']['scores'], [1, 1])
+        self.assertEqual(first['match']['time'], 228)
+        self.assertEqual(first['match']['target'], 'Jugador en cámara')
+        self.assertEqual(first['match']['players'][0]['Boost'], 85)
+        self.assertTrue(first['connection']['receiving'])
+        self.assertTrue(store.ingest(packet([2, 1], 227, 34, 198)))
+        second = store.snapshot()
+        self.assertEqual(second['match']['scores'], [2, 1])
+        self.assertEqual(second['match']['time'], 227)
+        self.assertEqual(second['match']['players'][0]['Score'], 198)
+        self.assertEqual(second['match']['players'][0]['Boost'], 34)
+        self.assertTrue(store.ingest({'Event': 'ClockUpdatedSeconds', 'Data': json.dumps({'TimeSeconds': 226, 'bOvertime': True})}))
+        self.assertTrue(store.match['overtime'])
+        self.assertEqual(store.match['time'], 226)
+        for _ in range(2):
+            store.ingest({'Event': 'MatchEnded', 'Data': json.dumps({'WinnerTeamNum': 0, 'MatchGuid': 'wire-match'})})
+        self.assertEqual(store.config['teams'][0]['wins'], 1)
+
+    def test_invalid_wire_payload_is_not_live(self):
+        store = Store()
+        for data in ('not json', '[]', None, {'Game': None}):
+            self.assertFalse(store.ingest({'Event': 'UpdateState', 'Data': data}))
+        self.assertFalse(store.snapshot()['connection']['receiving'])
+
+    def test_live_spectator_zero_boost_omission_and_no_camera_target(self):
+        store = Store()
+        data = {'Game': {'TimeSeconds': 200, 'Target': {'Name': 'Camera'}}, 'Players': [
+            {'Name': 'Camera', 'TeamNum': 0, 'Score': 128, 'bHasCar': True, 'Speed': 34.3},
+            {'Name': 'No telemetry', 'TeamNum': 1, 'Score': 20}]}
+        store.ingest({'Event': 'UpdateState', 'Data': json.dumps(data)})
+        self.assertEqual(store.match['players'][0]['Boost'], 0)
+        self.assertNotIn('Boost', store.match['players'][1])
+        self.assertNotIn('Boost', data['Players'][0])
+        data['Game']['Target'] = None
+        self.assertTrue(store.ingest({'Event': 'UpdateState', 'Data': json.dumps(data)}))
+        self.assertEqual(store.match['target'], '')
+
     def test_enable_api_preserves_settings_and_backup(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'TAStatsAPI.ini'
@@ -102,8 +153,8 @@ class ScoreboardTests(unittest.TestCase):
             with listener:
                 conn, _ = listener.accept()
                 with conn:
-                    data = (json.dumps({'Event': 'ClockUpdatedSeconds', 'Data': {'TimeSeconds': 42}})+
-                            json.dumps({'Event': 'ClockUpdatedSeconds', 'Data': {'TimeSeconds': 41}})).encode()
+                    data = (json.dumps({'Event': 'ClockUpdatedSeconds', 'Data': json.dumps({'TimeSeconds': 42})})+
+                            json.dumps({'Event': 'ClockUpdatedSeconds', 'Data': json.dumps({'TimeSeconds': 41})})).encode()
                     conn.sendall(data[:13])
                     time.sleep(.02)
                     conn.sendall(data[13:])

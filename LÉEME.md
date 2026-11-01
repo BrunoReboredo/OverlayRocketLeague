@@ -63,7 +63,7 @@ Los controles manuales de goles se bloquean mientras la conexión automática es
 ## Alcance de esta primera versión
 
 Incluye personalización del marcador superior, posiciones, escalas y visibilidad de paneles, además de estilos CSS propios. Aún no hay editor con arrastre, escenas de prepartido, instalador independiente o importación de temas de BARL.
-La conexión se ha comprobado con mensajes de prueba de la API; falta validarla con un partido real en este equipo y con OBS.
+La conexión se ha comprobado con un partido real: reloj, goles, estadísticas y turbo se actualizan en la vista previa de OBS. Las pruebas automáticas incluyen el formato real del campo Data y el turbo cero omitido en los mensajes de espectador.
 No modifica el balón del juego. Un balón personalizado requiere un trabajo separado sobre sus recursos.
 
 ## Referencias

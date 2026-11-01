@@ -104,22 +104,44 @@ class Store:
                                                  'status': self.status}})
 
     def ingest(self, packet):
+        if not isinstance(packet, dict):
+            return False
         event, d = packet.get('Event'), packet.get('Data', {})
+        # The live game serializes Data as JSON text; documentation examples
+        # also use an embedded object. Accept both transport representations.
+        if isinstance(d, str):
+            try:
+                d = json.loads(d)
+            except json.JSONDecodeError:
+                return False
         if not isinstance(d, dict):
-            return
+            return False
         with self.lock:
             m = self.match
             if event == 'UpdateState':
-                self.last_update = time.monotonic()
                 g = d.get('Game', {})
+                if not isinstance(g, dict) or not isinstance(d.get('Players', []), list):
+                    return False
                 for t in g.get('Teams', []):
                     i = t.get('TeamNum')
                     if i in (0, 1):
                         m['scores'][i] = max(0, int(t.get('Score', 0)))
                 m['time'] = int(g.get('TimeSeconds', m['time']))
                 m['overtime'] = bool(g.get('bOvertime', False))
-                m['players'] = [p for p in d.get('Players', []) if p.get('TeamNum') in (0, 1)]
-                m['target'] = g.get('Target', {}).get('Name', '')
+                players = []
+                for player in d.get('Players', []):
+                    if not isinstance(player, dict) or player.get('TeamNum') not in (0, 1):
+                        continue
+                    player = dict(player)
+                    # Live spectator packets omit Boost when it is zero. Only
+                    # infer zero if spectator car telemetry is actually present.
+                    if 'Boost' not in player and any(key in player for key in
+                            ('bHasCar', 'Speed', 'bBoosting', 'bOnGround', 'bOnWall', 'bDemolished')):
+                        player['Boost'] = 0
+                    players.append(player)
+                m['players'] = players
+                m['target'] = (g.get('Target') or {}).get('Name', '')
+                self.last_update = time.monotonic()
             elif event == 'ClockUpdatedSeconds':
                 m['time'] = int(d.get('TimeSeconds', 0))
                 m['overtime'] = bool(d.get('bOvertime', False))
@@ -138,6 +160,9 @@ class Store:
                             self.config['game'] = series_state(self.config)['game']
             elif event == 'MatchDestroyed':
                 m['players'], m['target'] = [], ''
+            else:
+                return False
+            return True
 
 
 class GameConnection:
@@ -194,9 +219,11 @@ class GameConnection:
                             except json.JSONDecodeError:
                                 break
                             if isinstance(packet, dict):
-                                self.store.ingest(packet)
-                                if packet.get('Event') == 'UpdateState':
+                                accepted = self.store.ingest(packet)
+                                if accepted and packet.get('Event') == 'UpdateState':
                                     self.store.status = 'En directo · tiempo y goles sincronizados con Rocket League'
+                                elif not accepted and packet.get('Event') == 'UpdateState':
+                                    self.store.status = 'Conectado · actualización del juego no reconocida'
                             text = text[end:].lstrip('\x00\r\n ')
                         buf = text.encode('utf-8')
                         if len(buf) > 4_000_000:
