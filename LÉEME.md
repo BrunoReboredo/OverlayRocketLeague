@@ -10,17 +10,17 @@ También puedes ejecutar `python app.py` desde esta carpeta. Mantén la aplicaci
 
 ## Personalizar
 
-- **Equipos y torneo:** nombres, escudos PNG/JPG, fase, número de partido y mejor de impar.
+- **Textos:** edición manual de nombres, escudos PNG/JPG, torneo, fase y número de partido.
 - **Diseño:** cinco colores, tres estilos, tipografía, escala, opacidad y posición del marcador superior en un lienzo de 1920 × 1080.
-- **Elementos:** mostrar u ocultar escudos, jugadores, estadísticas, turbo, marca y avisos.
+- **Elementos:** checks para activar o desactivar escudos, jugadores, estadísticas, turbo, marca y avisos. Check marcado significa función activa.
 - **Posiciones:** coordenadas y escala independiente de los paneles de jugadores, estadísticas, turbo, marca y avisos.
 - **CSS libre:** ajustar cualquier detalle del diseño con estilos propios opcionales.
-- **Control del partido:** goles, victorias de serie, reloj manual, prórroga y nuevo partido.
+- **Control del partido:** formato BO1, BO2, BO3, BO4, BO5 o BO7, goles y victorias de serie. Los indicadores se adaptan al formato. BO2 y BO4 admiten empate al agotar las partidas. Tiempo y prórroga proceden exclusivamente de la API.
 - **Perfiles:** guardar/cargar JSON. Los escudos importados se incluyen en el perfil. El último diseño se recupera al abrir.
 
 Pulsa **Aplicar diseño** para publicar cambios de campos de texto y números. Los botones de color y las casillas se aplican al instante.
 El esquema integrado resume el marcador; **Abrir vista previa** muestra el diseño completo en el navegador.
-La muestra de jugadores es ficticia y se activa únicamente con su botón.
+**Ver estadísticas y turbo** abre una vista ampliada con datos ficticios sin desconectar la API ni alterar el partido real. La vista previa general también utiliza datos de ejemplo aislados.
 Los colores iniciales están aproximados de las imágenes aportadas: rosa `#FA54B7`, coral `#FF8875`, amarillo `#FFD14C`, fondo `#181426`, blanco.
 
 ## OBS
@@ -35,7 +35,7 @@ La vista previa agrega un fondo ilustrativo; para OBS usa la URL sin `?preview=1
 
 ## Datos automáticos del juego
 
-La aplicación intenta conectarse al abrir y reconecta automáticamente. En este modo, tiempo, goles y prórroga los decide exclusivamente el juego; sus controles manuales quedan deshabilitados. El campo del reloj también refleja el tiempo recibido. Para ensayar sin juego, pulsa **Desconectar / modo manual** o carga la muestra.
+La aplicación intenta conectarse al abrir y reconecta automáticamente. En este modo, tiempo, goles y prórroga los decide exclusivamente el juego. No hay controles manuales de tiempo o prórroga. Para editar goles, pulsa **Desconectar / modo manual**. Las vistas de ejemplo son independientes del partido real.
 
 **Activar API en el juego…** permite seleccionar `TAStatsAPI.ini` o `DefaultStatsAPI.ini` con Rocket League cerrado. Guarda una copia `.bak`, activa 10 actualizaciones por segundo y conserva un puerto TCP válido ya configurado. Tras iniciar o reiniciar el juego, la aplicación busca ese puerto. Si no se reciben datos recientes, el estado deja de indicar «En directo»; no se simula el paso del tiempo.
 
@@ -58,7 +58,7 @@ El cliente escucha el flujo TCP local del puerto indicado y vuelve a conectar si
 Recibe goles, reloj, prórroga, jugadores, jugador en cámara y estadísticas. El turbo solo está disponible cuando el juego lo proporciona, normalmente como espectador; un dato ausente se muestra con un guion.
 Las victorias de serie se suman al recibir `MatchEnded`, una vez por identificador de partido durante la sesión de la aplicación. Puedes corregirlas con los botones de serie. El total de serie se guarda al cerrar o guardar perfil.
 Los equipos de la aplicación corresponden a los índices de juego 0 (azul) y 1 (naranja): ajusta los nombres cuando cambien de lado.
-El reloj, los goles, la prórroga y el botón de nuevo partido manual se bloquean mientras la conexión automática está activa. Los controles de serie siguen disponibles para que el realizador pueda corregir el total del torneo.
+Los controles manuales de goles se bloquean mientras la conexión automática está activa. Los controles de serie siguen disponibles para que el realizador pueda corregir el total del torneo. La serie deja de sumar automáticamente al completarse el formato; pulsa **Reiniciar serie** para comenzar otra.
 
 ## Alcance de esta primera versión
 

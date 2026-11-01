@@ -12,6 +12,20 @@ import webbrowser
 from api_config import enable_stats_api
 
 ROOT = Path(__file__).resolve().parent
+SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
+
+
+def series_state(config):
+    bestof = config['bestof']
+    wins = [team['wins'] for team in config['teams']]
+    target = bestof//2 + 1
+    complete = max(wins) >= target or sum(wins) >= bestof
+    tied = complete and wins[0] == wins[1]
+    return {'target': target, 'complete': complete, 'tied': tied,
+            'game': min(bestof, sum(wins) + (0 if complete else 1)),
+            'slots': target}
+
+
 DEFAULT = {
     'event': 'TORNEO PIRULETA', 'round': 'GRAN FINAL', 'game': 1, 'bestof': 5,
     'teams': [{'name': 'PINK CANDY', 'logo': '', 'wins': 0},
@@ -39,8 +53,9 @@ def normalize_config(raw):
     for key, lo, hi in [('game', 1, 99), ('bestof', 1, 15), ('scale', 50, 150),
                         ('opacity', 10, 100), ('x', 0, 1900), ('y', 0, 1000)]:
         c[key] = max(lo, min(hi, int(raw.get(key, c[key]))))
-    if c['bestof'] % 2 == 0:
-        raise ValueError('Mejor de debe ser impar: 1, 3, 5, 7…')
+    if c['bestof'] not in SERIES_FORMATS:
+        raise ValueError('Elige BO1, BO2, BO3, BO4, BO5 o BO7.')
+    c['game'] = min(c['game'], c['bestof'])
     for key in c:
         if key.startswith('show_') or key == 'auto_series':
             c[key] = bool(raw.get(key, c[key]))
@@ -61,6 +76,8 @@ def normalize_config(raw):
         c['teams'][i] = {'name': str(team.get('name', 'EQUIPO'))[:80],
                          'logo': str(team.get('logo', ''))[:2000000],
                          'wins': max(0, min(c['bestof']//2+1, int(team.get('wins', 0))))}
+    if sum(t['wins'] for t in c['teams']) > c['bestof']:
+        raise ValueError('Las victorias superan los partidos del formato. Reinicia la serie antes de cambiarlo.')
     return c
 
 
@@ -81,6 +98,7 @@ class Store:
             if time.monotonic() > self.banner_until:
                 self.match['banner'] = ''
             return copy.deepcopy({'config': self.config, 'match': self.match,
+                                  'series': series_state(self.config),
                                   'connection': {'automatic': self.automatic,
                                                  'receiving': self.last_update > 0 and time.monotonic()-self.last_update < 5,
                                                  'status': self.status}})
@@ -115,9 +133,9 @@ class Store:
                     self.banner_until = time.monotonic() + 12
                     if self.config['auto_series'] and guid and guid not in self.finished:
                         self.finished.add(guid)
-                        team = self.config['teams'][winner]
-                        team['wins'] = min(self.config['bestof']//2+1, team['wins']+1)
-                        self.config['game'] = min(self.config['bestof'], sum(t['wins'] for t in self.config['teams'])+1)
+                        if not series_state(self.config)['complete']:
+                            self.config['teams'][winner]['wins'] += 1
+                            self.config['game'] = series_state(self.config)['game']
             elif event == 'MatchDestroyed':
                 m['players'], m['target'] = [], ''
 
@@ -191,6 +209,19 @@ class GameConnection:
                 stop.wait(2)
 
 
+def preview_snapshot(store):
+    """Example data for preview only; never writes to the live match or connection."""
+    snapshot = store.snapshot()
+    snapshot['match'] = {
+        'scores': [2, 1], 'time': 193, 'overtime': False, 'target': 'PIRU', 'banner': '',
+        'players': [{'Name': name, 'TeamNum': i//3, 'Boost': boost,
+                     'Score': 541 if i == 0 else 125+i*32, 'Goals': 2 if i == 0 else i%2,
+                     'Shots': 5, 'Assists': 1, 'Saves': 3}
+                    for i, (name, boost) in enumerate([('PIRU', 72), ('CANDY', 38), ('FRESA', 100),
+                                                      ('MANGO', 54), ('POP', 8), ('LIMÓN', 91)])]}
+    return snapshot
+
+
 def make_server(store, port=0):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -198,8 +229,9 @@ def make_server(store, port=0):
 
         def do_GET(self):
             route = self.path.split('?')[0]
-            if route == '/state':
-                data = json.dumps(store.snapshot(), ensure_ascii=False).encode('utf-8')
+            if route in ('/state', '/preview-state'):
+                state = preview_snapshot(store) if route == '/preview-state' else store.snapshot()
+                data = json.dumps(state, ensure_ascii=False).encode('utf-8')
                 mime = 'application/json; charset=utf-8'
             elif route in ('/', '/overlay'):
                 data = (ROOT / 'overlay.html').read_bytes()
@@ -240,7 +272,7 @@ class App:
         self.url = f'http://127.0.0.1:{self.server.server_port}/overlay'
         root.title('Piruleta Studio · Marcador Rocket League')
         root.geometry('1280x850')
-        root.minsize(1050, 730)
+        root.minsize(1050, 850)
         root.configure(bg='#12101a')
         style = ttk.Style()
         style.theme_use('clam')
@@ -250,8 +282,27 @@ class App:
         style.configure('TCombobox', fieldbackground='#30283d', foreground='white')
         style.map('TCombobox', fieldbackground=[('readonly', '#30283d')], foreground=[('readonly', 'white')])
         style.configure('TButton', padding=(12, 8), background='#3e304a')
+        style.configure('Control.TButton', padding=(10, 2))
         style.map('TButton', background=[('active', '#75435d')])
         style.configure('TNotebook.Tab', padding=(14, 10))
+        # Keep actual BooleanVars and keyboard-accessible checkbuttons, with a tick instead of clam's X.
+        self.check_images = []
+        for checked in (False, True):
+            indicator = tk.PhotoImage(master=root, width=20, height=20)
+            indicator.put('#201b2c', to=(0, 0, 20, 20))
+            indicator.put('#fa54b7' if checked else '#796685', to=(1, 1, 19, 19))
+            indicator.put('#fa54b7' if checked else '#181426', to=(3, 3, 17, 17))
+            if checked:
+                for x in range(4, 16):
+                    y = x+5 if x < 8 else 20-x
+                    indicator.put('white', to=(x, y-1, x+2, y+2))
+            self.check_images.append(indicator)
+        style.element_create('Piruleta.Check.indicator', 'image', self.check_images[0],
+                             ('selected', self.check_images[1]), sticky='')
+        style.layout('Piruleta.TCheckbutton', [('Checkbutton.padding', {'sticky': 'nswe', 'children': [
+            ('Piruleta.Check.indicator', {'side': 'left', 'sticky': ''}),
+            ('Checkbutton.label', {'side': 'left', 'sticky': 'nswe'})]})])
+        style.configure('Piruleta.TCheckbutton', padding=(0, 3), background='#201b2c')
         self.vars, self.team_vars = {}, [{}, {}]
         self.last_game = self.store.config['game']
         head = tk.Frame(root, bg='#12101a')
@@ -263,17 +314,17 @@ class App:
         body.pack(fill='both', expand=True, padx=24)
         left = ttk.Frame(body, padding=12)
         left.pack(side='left', fill='both', expand=True)
-        right = ttk.Frame(body, padding=16, width=395)
+        right = ttk.Frame(body, padding=12, width=395)
         right.pack(side='right', fill='y')
         ttk.Label(left, text='DISEÑO EN DIRECTO', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-        self.canvas = tk.Canvas(left, bg='#141720', height=290, highlightthickness=0)
+        self.canvas = tk.Canvas(left, bg='#141720', height=240, highlightthickness=0)
         self.canvas.pack(fill='x', pady=(10, 12))
         self.canvas.bind('<Configure>', lambda e: self.draw())
         ttk.Label(left, text='Esquema del marcador · abre la vista previa para ver el diseño completo', font=('Segoe UI', 9)).pack(anchor='w')
         nb = ttk.Notebook(left)
         nb.pack(fill='both', expand=True, pady=12)
         teams, design, visibility, layout, advanced = (ttk.Frame(nb, padding=15) for _ in range(5))
-        nb.add(teams, text='Equipos y torneo')
+        nb.add(teams, text='Textos')
         nb.add(design, text='Diseño')
         nb.add(visibility, text='Elementos')
         nb.add(layout, text='Posiciones')
@@ -297,7 +348,6 @@ class App:
         self.entry(teams, 'Nombre del torneo', 'event')
         self.entry(teams, 'Fase / ronda', 'round')
         self.entry(teams, 'Partido de la serie', 'game', numeric=(1, 99))
-        self.entry(teams, 'Mejor de (impar)', 'bestof', numeric=(1, 15))
         for i in range(2):
             row = ttk.Frame(teams)
             row.pack(fill='x', pady=7)
@@ -320,67 +370,58 @@ class App:
         for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Jugadores y barras de turbo'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_brand', 'Marca del torneo'), ('show_events', 'Avisos de gol y victoria'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
-            ttk.Checkbutton(visibility, text=label, variable=v, command=self.apply).pack(anchor='w', pady=5)
-        ttk.Button(left, text='Aplicar diseño', command=self.apply).pack(anchor='e')
-        ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 14))
+            ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
+                            style='Piruleta.TCheckbutton').pack(anchor='w', pady=5)
+        ttk.Button(left, text='Aplicar diseño', style='Control.TButton', command=self.apply).pack(anchor='e')
+        ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 10))
+        ttk.Label(right, text='Formato de la serie', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.format_var = tk.StringVar(value=f"BO{self.store.config['bestof']}")
+        self.format_selector = ttk.Combobox(right, textvariable=self.format_var, state='readonly',
+                                            values=[f'BO{n}' for n in SERIES_FORMATS])
+        self.format_selector.pack(fill='x', pady=(6, 4))
+        self.format_selector.bind('<<ComboboxSelected>>', self.change_format)
+        self.series_hint = ttk.Label(right, wraplength=340, foreground='#ffce72')
+        self.series_hint.pack(anchor='w', pady=(0, 10))
         self.score_labels, self.win_labels, self.manual_controls = [], [], []
         for i in range(2):
             ttk.Label(right, text=f'EQUIPO {i+1} · GOLES / SERIE').pack(anchor='w', pady=(12, 4))
             row = ttk.Frame(right)
             row.pack(fill='x')
-            button = ttk.Button(row, text='−', command=lambda i=i: self.goal(i, -1))
+            button = ttk.Button(row, text='−', width=3, style='Control.TButton', command=lambda i=i: self.goal(i, -1))
             button.pack(side='left')
             self.manual_controls.append(button)
             label = ttk.Label(row, text='0', font=('Segoe UI', 25, 'bold'), width=3, anchor='center')
             label.pack(side='left', padx=8)
             self.score_labels.append(label)
-            button = ttk.Button(row, text='+', command=lambda i=i: self.goal(i, 1))
+            button = ttk.Button(row, text='+', width=3, style='Control.TButton', command=lambda i=i: self.goal(i, 1))
             button.pack(side='left')
             self.manual_controls.append(button)
             label = ttk.Label(row, text='Serie 0', width=7, anchor='center')
             label.pack(side='left', padx=4)
             self.win_labels.append(label)
-            ttk.Button(row, text='−', command=lambda i=i: self.win(i, -1)).pack(side='left')
-            ttk.Button(row, text='+', command=lambda i=i: self.win(i, 1)).pack(side='left')
-        timer = ttk.Frame(right)
-        timer.pack(fill='x', pady=(25, 8))
-        self.clock = tk.StringVar(value='5:00')
-        entry = ttk.Entry(timer, textvariable=self.clock, width=9, font=('Segoe UI', 20))
-        entry.pack(side='left')
-        button = ttk.Button(timer, text='Fijar tiempo', command=self.set_time)
-        button.pack(side='left', padx=6)
-        self.manual_controls.extend([entry, button])
-        self.running = False
-        self.run_button = ttk.Button(right, text='▶ Iniciar reloj manual', command=self.toggle_clock)
-        self.run_button.pack(fill='x', pady=4)
-        self.manual_controls.append(self.run_button)
-        self.ot = tk.BooleanVar()
-        button = ttk.Checkbutton(right, text='Prórroga', variable=self.ot, command=self.set_overtime)
-        button.pack(anchor='w', pady=5)
-        self.manual_controls.append(button)
-        button = ttk.Button(right, text='Nuevo partido (5:00 · 0–0)', command=self.new_match)
-        button.pack(fill='x', pady=4)
-        self.manual_controls.append(button)
-        ttk.Button(right, text='Reiniciar serie', command=self.reset_series).pack(fill='x', pady=4)
-        ttk.Button(right, text='Cargar muestra de jugadores', command=self.demo).pack(fill='x', pady=4)
-        ttk.Separator(right).pack(fill='x', pady=18)
+            ttk.Button(row, text='−', width=3, style='Control.TButton', command=lambda i=i: self.win(i, -1)).pack(side='left')
+            ttk.Button(row, text='+', width=3, style='Control.TButton', command=lambda i=i: self.win(i, 1)).pack(side='left')
+        ttk.Label(right, text='Tiempo y prórroga: sincronizados por la API.',
+                  wraplength=340, foreground='#b6a4c3').pack(anchor='w', pady=(14, 8))
+        ttk.Button(right, text='Reiniciar serie', style='Control.TButton', command=self.reset_series).pack(fill='x', pady=3)
+        ttk.Button(right, text='Ver estadísticas y turbo', style='Control.TButton', command=self.demo).pack(fill='x', pady=3)
+        ttk.Separator(right).pack(fill='x', pady=10)
         ttk.Label(right, text='DATOS DE ROCKET LEAGUE', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
         row = ttk.Frame(right)
         row.pack(fill='x', pady=10)
         ttk.Label(row, text='Puerto TCP').pack(side='left')
         self.port = tk.StringVar(value='49123')
         ttk.Entry(row, textvariable=self.port, width=8).pack(side='left', padx=8)
-        ttk.Button(row, text='Conectar', command=self.connect).pack(side='left')
-        ttk.Button(right, text='Desconectar / modo manual', command=self.disconnect).pack(fill='x')
-        ttk.Button(right, text='Activar API en el juego…', command=self.configure_api).pack(fill='x', pady=3)
-        ttk.Button(right, text='Cómo conectar el juego y OBS', command=self.help).pack(fill='x', pady=6)
-        ttk.Separator(right).pack(fill='x', pady=15)
-        ttk.Button(right, text='Guardar perfil…', command=self.save).pack(fill='x', pady=3)
-        ttk.Button(right, text='Cargar perfil…', command=self.load).pack(fill='x', pady=3)
+        ttk.Button(row, text='Conectar', style='Control.TButton', command=self.connect).pack(side='left')
+        ttk.Button(right, text='Desconectar / modo manual', style='Control.TButton', command=self.disconnect).pack(fill='x')
+        ttk.Button(right, text='Activar API en el juego…', style='Control.TButton', command=self.configure_api).pack(fill='x', pady=3)
+        ttk.Button(right, text='Cómo conectar el juego y OBS', style='Control.TButton', command=self.help).pack(fill='x', pady=4)
+        ttk.Separator(right).pack(fill='x', pady=10)
+        ttk.Button(right, text='Guardar perfil…', style='Control.TButton', command=self.save).pack(fill='x', pady=3)
+        ttk.Button(right, text='Cargar perfil…', style='Control.TButton', command=self.load).pack(fill='x', pady=3)
         self.status = tk.Label(root, bg='#12101a', fg='#ffce72', anchor='w', padx=24, pady=13)
-        self.status.pack(fill='x')
+        self.status.pack(side='bottom', fill='x', before=body)
         self.root.protocol('WM_DELETE_WINDOW', self.close)
-        self.last_tick = time.monotonic()
         self.connect()
         self.refresh()
 
@@ -419,6 +460,7 @@ class App:
 
     def sync(self):
         c = self.store.config
+        self.format_var.set(f"BO{c['bestof']}")
         for k, v in self.vars.items():
             v.set(c[k])
         for i in range(2):
@@ -462,46 +504,32 @@ class App:
 
     def win(self, i, delta):
         with self.store.lock:
+            state = series_state(self.store.config)
+            if delta > 0 and state['complete']:
+                return
             t = self.store.config['teams'][i]
             t['wins'] = max(0, min(self.store.config['bestof']//2+1, t['wins']+delta))
+            self.store.config['game'] = series_state(self.store.config)['game']
+            self.vars['game'].set(str(self.store.config['game']))
         self.draw()
 
-    def set_time(self):
-        if self.store.automatic:
-            return
-        try:
-            mm, ss = map(int, self.clock.get().lstrip('+').split(':'))
-            if mm < 0 or not 0 <= ss <= 59:
-                raise ValueError()
-            with self.store.lock:
-                self.store.match['time'] = mm*60+ss
-            self.draw()
-        except ValueError:
-            messagebox.showerror('Tiempo', 'Escribe minutos:segundos, por ejemplo 4:30.')
-
-    def toggle_clock(self):
-        if self.connection.thread and self.connection.thread.is_alive():
-            messagebox.showinfo('Reloj automático', 'Desconecta los datos del juego para usar el reloj manual.')
-            return
-        self.running = not self.running
-        self.last_tick = time.monotonic()
-        self.run_button.configure(text='Ⅱ Pausar reloj manual' if self.running else '▶ Iniciar reloj manual')
-
-    def set_overtime(self):
-        if self.store.automatic:
-            return
+    def change_format(self, event=None):
+        bestof = int(self.format_var.get()[2:])
         with self.store.lock:
-            self.store.match['overtime'] = self.ot.get()
-
-    def new_match(self):
-        if self.store.automatic:
-            return
-        self.running = False
-        self.run_button.configure(text='▶ Iniciar reloj manual')
-        with self.store.lock:
-            self.store.match.update(scores=[0, 0], time=300, overtime=False, banner='')
-        self.ot.set(False)
-        self.clock.set('5:00')
+            raw = copy.deepcopy(self.store.config)
+            raw['bestof'] = bestof
+            try:
+                if (sum(t['wins'] for t in raw['teams']) > bestof or
+                        max(t['wins'] for t in raw['teams']) > bestof//2+1):
+                    raise ValueError('El resultado no cabe en este formato.')
+                updated = normalize_config(raw)
+            except ValueError:
+                self.format_var.set(f"BO{self.store.config['bestof']}")
+                messagebox.showinfo('Formato de la serie',
+                                    'Reinicia la serie antes de elegir un formato menor que el resultado actual.')
+                return
+            self.store.config = updated
+            self.vars['game'].set(str(updated['game']))
         self.draw()
 
     def reset_series(self):
@@ -513,13 +541,7 @@ class App:
         self.draw()
 
     def demo(self):
-        self.disconnect()
-        self.store.ingest({'Event': 'UpdateState', 'Data': {
-            'Game': {'TimeSeconds': 193, 'Teams': [{'TeamNum': 0, 'Score': 2}, {'TeamNum': 1, 'Score': 1}], 'Target': {'Name': 'PIRU'}},
-            'Players': [{'Name': n, 'TeamNum': i//3, 'Boost': b, 'Score': 125+i*32, 'Goals': i%2, 'Shots': 3, 'Assists': 1, 'Saves': 2}
-                        for i, (n, b) in enumerate([('PIRU', 72), ('CANDY', 38), ('FRESA', 100), ('MANGO', 54), ('POP', 8), ('LIMÓN', 91)])]}})
-        self.store.status = 'Muestra · datos ficticios de jugadores'
-        self.draw()
+        webbrowser.open(self.url+'?preview=1&details=1')
 
     def connect(self):
         try:
@@ -529,8 +551,6 @@ class App:
         except ValueError:
             messagebox.showerror('Puerto', 'Introduce un puerto entre 1 y 65535.')
             return
-        self.running = False
-        self.run_button.configure(text='▶ Iniciar reloj manual')
         self.connection.connect(port)
 
     def disconnect(self):
@@ -607,30 +627,21 @@ class App:
         for i in range(2):
             self.score_labels[i].configure(text=str(m['scores'][i]))
             self.win_labels[i].configure(text=f"Serie {c['teams'][i]['wins']}")
+        state = series_state(c)
+        hint = f"BO{c['bestof']} · {state['target']} victorias para ganar"
+        if c['bestof'] % 2 == 0:
+            hint += f" · hasta {c['bestof']} partidos; admite empate"
+        if state['complete']:
+            hint += ' · EMPATE' if state['tied'] else ' · SERIE FINALIZADA'
+        self.series_hint.configure(text=hint)
 
     def refresh(self):
-        now = time.monotonic()
         automatic = self.store.automatic
         for control in self.manual_controls:
             control.state(['disabled'] if automatic else ['!disabled'])
-        if automatic:
-            self.running = False
-            m = self.store.snapshot()['match']
-            seconds = abs(int(m['time']))
-            self.clock.set(('+' if m['overtime'] else '')+f'{seconds//60}:{seconds%60:02}')
-            self.ot.set(m['overtime'])
         if self.store.config['game'] != self.last_game:
             self.last_game = self.store.config['game']
             self.vars['game'].set(str(self.last_game))
-        if self.running and now-self.last_tick >= 1:
-            elapsed = int(now-self.last_tick)
-            self.last_tick += elapsed
-            with self.store.lock:
-                m = self.store.match
-                m['time'] = m['time']+elapsed if m['overtime'] else max(0, m['time']-elapsed)
-                if m['time'] == 0 and not m['overtime']:
-                    self.running = False
-                    self.run_button.configure(text='▶ Iniciar reloj manual')
         self.status.configure(text='● '+self.store.status+'     |     OBS: '+self.url)
         self.draw()
         self.root.after(250, self.refresh)

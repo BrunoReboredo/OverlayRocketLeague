@@ -82,7 +82,7 @@ http://127.0.0.1:18765/overlay
 
 El fondo es transparente. Si el puerto está ocupado, la aplicación utiliza otro y muestra la URL correcta en su barra inferior: usa siempre **Copiar URL para OBS**.
 
-**Abrir vista previa** muestra el diseño completo en el navegador con un fondo ilustrativo. Para OBS, utiliza la URL sin `?preview=1`.
+**Abrir vista previa** muestra el diseño completo con un fondo ilustrativo y datos de ejemplo. **Ver estadísticas y turbo** abre una vista ampliada de esos paneles. Estas vistas no desconectan la API ni cambian el partido real. Para OBS, utiliza la URL sin `?preview=1`.
 
 La conexión está pensada para usar la aplicación, Rocket League y OBS en el mismo ordenador. El servidor del marcador solo escucha en la dirección local.
 
@@ -90,15 +90,15 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 
 | Pestaña | Opciones |
 | --- | --- |
-| **Equipos y torneo** | Nombre del torneo, ronda, partido de la serie, mejor de, nombres de equipos y escudos. |
+| **Textos** | Edición manual del nombre del torneo, ronda, partido de la serie, nombres de equipos y escudos. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
-| **Elementos** | Mostrar u ocultar escudos, jugadores, estadísticas, turbo, marca y avisos. Activar el conteo automático de victorias. |
+| **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
 
 Pulsa **Aplicar diseño** después de editar campos de texto, números, posiciones o CSS. Los colores y las casillas se aplican al instante.
 
-Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de menos de 1,4 MB. Los formatos de serie deben ser impares: mejor de 1, 3, 5, 7…
+Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de menos de 1,4 MB. En **Control del partido → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
 
 El esquema dentro del panel resume el marcador. Para comprobar el resultado completo, usa la vista previa del navegador.
 
@@ -109,7 +109,7 @@ El esquema dentro del panel resume el marcador. Para comprobar el resultado comp
 Es el modo que se activa al abrir la aplicación o pulsar **Conectar**.
 
 - Los goles, el tiempo y la prórroga siguen los datos que envía Rocket League. No se hace avanzar un reloj independiente.
-- Los controles manuales de esos datos quedan deshabilitados, incluido el botón de nuevo partido.
+- El tiempo y la prórroga no tienen controles manuales: se reciben exclusivamente de la API. Los botones manuales de goles quedan deshabilitados mientras esté activa la conexión automática.
 - Los paneles muestran los jugadores y el jugador en cámara cuando el juego facilita esos datos.
 - Si faltan datos recientes, el estado deja de indicar «En directo». El reloj conserva el último dato recibido hasta que lleguen nuevas actualizaciones.
 - Si se cierra el juego o se pierde la conexión, la aplicación vuelve a intentar conectarse.
@@ -120,13 +120,15 @@ Los nombres y escudos de los equipos son los que configures en Piruleta Studio. 
 
 Con **Sumar victorias automáticamente (API)** activado, el evento de final de partido suma una victoria al equipo ganador y actualiza el número de partido de la serie. El mismo identificador de partido solo cuenta una vez durante la sesión de la aplicación.
 
+La serie termina al conseguir la mayoría de victorias o alcanzar el máximo de partidas del formato. BO2 admite 1–1 y BO4 admite 2–2; el marcador muestra **EMPATE**. Los formatos impares requieren 1, 2, 3 o 4 victorias para BO1, BO3, BO5 y BO7, respectivamente. Los indicadores se adaptan al objetivo de cada formato. Una serie terminada no sigue sumando partidos automáticamente; reiníciala para comenzar otra.
+
 Los botones de serie permiten corregir las victorias incluso en modo automático. **Reiniciar serie** pone sus victorias a cero y el número de partido a uno; no reinicia el partido dentro del juego.
 
 ### Modo manual y muestra
 
-Pulsa **Desconectar / modo manual** para habilitar goles, reloj, prórroga y nuevo partido. Estos controles solo cambian el overlay.
+Pulsa **Desconectar / modo manual** para habilitar la edición manual de goles. El tiempo y la prórroga siguen sin ser editables. Estos controles solo cambian el overlay.
 
-**Cargar muestra de jugadores** desconecta la API y carga datos ficticios para probar el diseño sin un partido abierto. Pulsa **Conectar** para volver a los datos reales.
+**Ver estadísticas y turbo** abre una vista de ejemplo aislada para comprobar el diseño: tarjeta de puntos, goles, tiros, asistencias y salvadas, junto al indicador circular de turbo. La conexión automática sigue activa y OBS conserva los datos reales.
 
 ## Guardar y recuperar perfiles
 
@@ -147,7 +149,7 @@ Los perfiles no guardan el estado completo del partido ni el puerto de conexión
 | No se puede guardar la configuración del juego | Comprueba los permisos de escritura del archivo seleccionado. El botón necesita poder crear la copia y modificar el INI. |
 | OBS no muestra el marcador | Mantén la aplicación abierta, copia de nuevo su URL y revisa que la fuente esté visible por encima de la captura. |
 | La fuente tiene un fondo ilustrativo | Quita `?preview=1` de la URL de OBS. |
-| No puedo editar el tiempo o los goles | Estás en modo automático. Pulsa **Desconectar / modo manual** para ensayar con esos controles. |
+| No puedo editar el tiempo | Es intencionado: el tiempo y la prórroga proceden exclusivamente del juego. Para editar goles, pulsa **Desconectar / modo manual**. |
 
 ## Estado del proyecto
 

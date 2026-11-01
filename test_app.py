@@ -7,7 +7,7 @@ import urllib.request
 import tempfile
 from pathlib import Path
 from api_config import enable_stats_api
-from app import Store, GameConnection, make_server, normalize_config
+from app import Store, GameConnection, make_server, normalize_config, series_state, preview_snapshot
 
 
 class ScoreboardTests(unittest.TestCase):
@@ -55,7 +55,41 @@ class ScoreboardTests(unittest.TestCase):
     def test_profiles(self):
         self.assertEqual(normalize_config({'scale': 999})['scale'], 150)
         with self.assertRaises(ValueError):
-            normalize_config({'bestof': 4})
+            normalize_config({'bestof': 6})
+
+    def test_all_formats_roundtrip_and_finish(self):
+        for bestof in (1, 2, 3, 4, 5, 7):
+            with self.subTest(bestof=bestof):
+                store = Store()
+                store.config = normalize_config({'bestof': bestof})
+                target = bestof//2+1
+                self.assertEqual(series_state(store.config)['slots'], target)
+                for i in range(target+2):
+                    store.ingest({'Event': 'MatchEnded', 'Data': {'WinnerTeamNum': 0, 'MatchGuid': f'm{i}'}})
+                self.assertEqual(store.config['teams'][0]['wins'], target)
+                self.assertTrue(series_state(store.config)['complete'])
+                self.assertEqual(store.config, normalize_config(json.loads(json.dumps(store.config))))
+
+    def test_even_formats_can_end_in_draw(self):
+        for bestof in (2, 4):
+            store = Store()
+            store.config = normalize_config({'bestof': bestof})
+            for i in range(bestof):
+                store.ingest({'Event': 'MatchEnded', 'Data': {'WinnerTeamNum': i%2, 'MatchGuid': f'm{i}'}})
+            self.assertTrue(series_state(store.config)['tied'])
+            self.assertEqual(store.config['game'], bestof)
+            wins = [t['wins'] for t in store.config['teams']]
+            store.ingest({'Event': 'MatchEnded', 'Data': {'WinnerTeamNum': 0, 'MatchGuid': 'extra'}})
+            self.assertEqual([t['wins'] for t in store.config['teams']], wins)
+
+    def test_preview_does_not_change_live_data_or_connection(self):
+        store = Store()
+        store.automatic = True
+        before = store.snapshot()
+        example = preview_snapshot(store)
+        self.assertEqual(example['match']['players'][0]['Boost'], 72)
+        self.assertEqual(example['match']['players'][0]['Score'], 541)
+        self.assertEqual(store.snapshot(), before)
 
     def test_tcp_fragmented_stream_and_reconnect_stop(self):
         s = Store()
@@ -96,6 +130,10 @@ class ScoreboardTests(unittest.TestCase):
                 self.assertEqual(json.load(response)['config']['event'], 'TORNEO PIRULETA')
             with urllib.request.urlopen(url+'/overlay', timeout=3) as response:
                 self.assertIn(b'background:transparent', response.read())
+            with urllib.request.urlopen(url+'/preview-state', timeout=3) as response:
+                self.assertEqual(json.load(response)['match']['target'], 'PIRU')
+            with urllib.request.urlopen(url+'/state', timeout=3) as response:
+                self.assertEqual(json.load(response)['match']['players'], [])
             with urllib.request.urlopen(url+'/assets/torneo.png', timeout=3) as response:
                 self.assertEqual(response.headers['Content-Type'], 'image/png')
         finally:
