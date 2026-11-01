@@ -453,7 +453,6 @@ class App:
         ttk.Label(right, text='Tiempo y prórroga: sincronizados por la API.',
                   wraplength=340, foreground='#b6a4c3').pack(anchor='w', pady=(14, 8))
         ttk.Button(right, text='Reiniciar serie', style='Control.TButton', command=self.reset_series).pack(fill='x', pady=3)
-        ttk.Button(right, text='Ver estadísticas y turbo', style='Control.TButton', command=self.demo).pack(fill='x', pady=3)
         ttk.Separator(right).pack(fill='x', pady=10)
         ttk.Label(right, text='DATOS DE ROCKET LEAGUE', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
         row = ttk.Frame(right)
@@ -592,9 +591,6 @@ class App:
             self.store.config['game'] = 1
         self.vars['game'].set('1')
         self.draw()
-
-    def demo(self):
-        webbrowser.open(self.url+'?preview=1&details=1')
 
     def connect(self):
         try:

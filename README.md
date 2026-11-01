@@ -82,7 +82,7 @@ http://127.0.0.1:18765/overlay
 
 El fondo es transparente. Si el puerto está ocupado, la aplicación utiliza otro y muestra la URL correcta en su barra inferior: usa siempre **Copiar URL para OBS**.
 
-**Abrir vista previa** muestra el diseño completo con un fondo ilustrativo y datos de ejemplo. **Ver estadísticas y turbo** abre una vista ampliada de esos paneles. Estas vistas no desconectan la API ni cambian el partido real. Para OBS, utiliza la URL sin `?preview=1`.
+**Abrir vista previa** muestra el diseño completo, incluidas las estadísticas y el turbo, con un fondo ilustrativo y datos de ejemplo. Esta vista no desconecta la API ni cambia el partido real. Para OBS, utiliza la URL sin `?preview=1`.
 
 La conexión está pensada para usar la aplicación, Rocket League y OBS en el mismo ordenador. El servidor del marcador solo escucha en la dirección local.
 
@@ -133,7 +133,7 @@ Los botones de serie permiten corregir las victorias incluso en modo automático
 
 Pulsa **Desconectar / modo manual** para habilitar la edición manual de goles. El tiempo y la prórroga siguen sin ser editables. Estos controles solo cambian el overlay.
 
-**Ver estadísticas y turbo** abre una vista de ejemplo aislada para comprobar el diseño: tarjeta de puntos, goles, tiros, asistencias y salvadas, junto al indicador circular de turbo. La conexión automática sigue activa y OBS conserva los datos reales.
+**Abrir vista previa** permite comprobar todo el diseño con datos de ejemplo, incluidas la tarjeta de estadísticas, las barras de todos los jugadores y el indicador circular de turbo. La conexión automática sigue activa y OBS conserva los datos reales.
 
 ## Guardar y recuperar perfiles
 

@@ -21,7 +21,7 @@ También puedes ejecutar `python app.py` desde esta carpeta. Mantén la aplicaci
 
 Pulsa **Aplicar diseño** para publicar cambios de campos de texto y números. Los botones de color y las casillas se aplican al instante.
 El esquema integrado resume el marcador; **Abrir vista previa** muestra el diseño completo en el navegador.
-**Ver estadísticas y turbo** abre una vista ampliada con datos ficticios sin desconectar la API ni alterar el partido real. La vista previa general también utiliza datos de ejemplo aislados.
+**Abrir vista previa** muestra todo el diseño, incluidas las estadísticas y el turbo, con datos ficticios sin desconectar la API ni alterar el partido real.
 Los colores iniciales están aproximados de las imágenes aportadas: rosa `#FA54B7`, coral `#FF8875`, amarillo `#FFD14C`, fondo `#181426`, blanco.
 
 El marcador se coloca en el borde superior. El turbo observado parte de una escala del 120 %, y los laterales muestran nombres, valores y barras de turbo de ambos equipos. El valor cero se muestra como **0**. Se han eliminado los mensajes de gol y de su autor; los goles siguen sincronizados con el juego.
