@@ -13,6 +13,8 @@ from api_config import enable_stats_api
 
 ROOT = Path(__file__).resolve().parent
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
+MAX_LOGO_BYTES = 4_000_000
+MAX_LOGO_DATA_URL_CHARS = ((MAX_LOGO_BYTES + 2) // 3) * 4 + 64
 
 
 def series_state(config):
@@ -78,7 +80,7 @@ def normalize_config(raw):
                 c['colors'][key] = value
     for i, team in enumerate(raw.get('teams', [])[:2]):
         c['teams'][i] = {'name': str(team.get('name', 'EQUIPO'))[:80],
-                         'logo': str(team.get('logo', ''))[:2000000],
+                         'logo': str(team.get('logo', ''))[:MAX_LOGO_DATA_URL_CHARS],
                          'wins': max(0, min(c['bestof']//2+1, int(team.get('wins', 0))))}
     if sum(t['wins'] for t in c['teams']) > c['bestof']:
         raise ValueError('Las victorias superan los partidos del formato. Reinicia la serie antes de cambiarlo.')
@@ -536,8 +538,8 @@ class App:
         path = filedialog.askopenfilename(filetypes=[('Imagen PNG / JPG', '*.png *.jpg *.jpeg')])
         if path:
             data = Path(path).read_bytes()
-            if len(data) > 1_400_000:
-                messagebox.showerror('Imagen grande', 'Utiliza un escudo de menos de 1,4 MB.')
+            if len(data) > MAX_LOGO_BYTES:
+                messagebox.showerror('Imagen grande', 'El tamaño máximo del escudo es de 4 MB.')
                 return
             mime = 'image/png' if Path(path).suffix.lower() == '.png' else 'image/jpeg'
             with self.store.lock:

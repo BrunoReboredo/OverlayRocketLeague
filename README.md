@@ -99,7 +99,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 
 Pulsa **Aplicar diseño** después de editar campos de texto, números, posiciones o CSS. Los colores y las casillas se aplican al instante.
 
-Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de menos de 1,4 MB. En **Control del partido → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
+Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de hasta 4 MB. En **Control del partido → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
 
 El marcador parte del borde superior. El turbo del jugador observado tiene una escala inicial del 120 %. Los paneles laterales muestran el turbo de todos los jugadores, con nombre, valor numérico y barra; el equipo derecho aparece reflejado. El turbo cero se muestra como **0**. Los mensajes de gol y de su autor están desactivados; el resultado sigue actualizándose desde la API.
 
