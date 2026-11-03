@@ -161,20 +161,11 @@ Los perfiles guardan el puerto de conexión, el diseño y el resultado de serie,
 
 ## Estado del proyecto
 
-La recepción de datos, la configuración del INI y la fuente del overlay tienen pruebas automáticas. La sincronización del reloj, los goles, las estadísticas y el turbo se ha comprobado con un partido real y en la vista previa de OBS.
+La sincronización del reloj, los goles, las estadísticas y el turbo se ha comprobado con un partido real y en la vista previa de OBS.
 
 Esta versión no incluye instalador independiente, editor con arrastre, escenas de prepartido ni importación de temas de BARL. Tampoco modifica la apariencia del balón dentro del juego.
 
-## Desarrollo
-
-Desde la carpeta del proyecto, ejecuta las pruebas con:
-
-```bash
-python -m unittest -v
-node --test test_boost_animation.cjs
-```
-
-Las pruebas de conexión necesitan permitir conexiones locales.
+## Archivos del proyecto
 
 | Archivo | Función |
 | --- | --- |
@@ -183,6 +174,5 @@ Las pruebas de conexión necesitan permitir conexiones locales.
 | `overlay.html` | Diseño del marcador que se muestra en OBS. |
 | `boost-animation.js` | Interpolación de turbo independiente de la frecuencia de actualización. |
 | `assets/` | Recursos visuales del torneo. |
-| `test_app.py` | Pruebas automáticas. |
 
 Referencia de inspiración: [BARL](https://lndrlndr.github.io/BARL/).

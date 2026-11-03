@@ -69,14 +69,10 @@ Los números, las barras y el círculo de turbo interpolan los cambios durante 2
 ## Alcance de esta primera versión
 
 Incluye personalización del marcador superior, posiciones, escalas y visibilidad de paneles, además de estilos CSS propios. Aún no hay editor con arrastre, escenas de prepartido, instalador independiente o importación de temas de BARL.
-La conexión se ha comprobado con un partido real: reloj, goles, estadísticas y turbo se actualizan en la vista previa de OBS. Las pruebas automáticas incluyen el formato real del campo Data y el turbo cero omitido en los mensajes de espectador.
+La conexión se ha comprobado con un partido real: reloj, goles, estadísticas y turbo se actualizan en la vista previa de OBS.
 No modifica el balón del juego. Un balón personalizado requiere un trabajo separado sobre sus recursos.
 
 ## Referencias
 
 - BARL: https://lndrlndr.github.io/BARL/
 - Stats API oficial y disponibilidad de campos: https://www.rocketleague.com/developer/stats-api?lang=en
-
-## Comprobación
-
-Ejecuta `python -m unittest -v` desde esta carpeta para comprobar el flujo de datos, el conteo de serie y la fuente de OBS.
