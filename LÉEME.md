@@ -1,4 +1,4 @@
-# Piruleta Studio
+# Piruleta Studio 0.2
 
 Aplicación de escritorio para Windows, con un marcador transparente para OBS.
 Basada en las funciones públicas de BARL y las referencias del torneo; es una aplicación independiente.
@@ -11,6 +11,7 @@ También puedes ejecutar `python app.py` desde esta carpeta. Mantén la aplicaci
 ## Personalizar
 
 - **Textos:** edición manual de nombres, escudos PNG/JPG, torneo, fase y número de partido.
+- **Cambiar equipos de lado:** en Textos, intercambia nombres, logos, colores, fondos de jugadores y victorias de serie. Los datos del partido siguen los lados que envía el juego.
 - **Diseño:** cinco colores, tres estilos, tipografía, escala, opacidad y posición del marcador superior en un lienzo de 1920 × 1080.
 - **Fondos:** colores del turbo, estadísticas y paneles de jugadores vinculados a la paleta principal; cada panel puede elegir un color diferente. Se guardan en el perfil.
 - **Elementos:** checks para activar o desactivar escudos, jugadores, estadísticas, turbo, marca y avisos. Check marcado significa función activa.
@@ -38,9 +39,9 @@ La vista previa agrega un fondo ilustrativo; para OBS usa la URL sin `?preview=1
 
 ## Datos automáticos del juego
 
-La aplicación intenta conectarse al abrir y reconecta automáticamente. En este modo, tiempo, goles y prórroga los decide exclusivamente el juego. No hay controles manuales de tiempo o prórroga. Para editar goles, pulsa **Desconectar / modo manual**. Las vistas de ejemplo son independientes del partido real.
+La aplicación intenta conectarse al abrir y reconecta automáticamente. Tiempo, goles y prórroga los decide exclusivamente el juego. La versión 0.2 no tiene modo manual ni apartado de conexión. Las vistas de ejemplo son independientes del partido real.
 
-**Activar API en el juego…** permite seleccionar `TAStatsAPI.ini` o `DefaultStatsAPI.ini` con Rocket League cerrado. Guarda una copia `.bak`, activa 10 actualizaciones por segundo y conserva un puerto TCP válido ya configurado. Tras iniciar o reiniciar el juego, la aplicación busca ese puerto. Si no se reciben datos recientes, el estado deja de indicar «En directo»; no se simula el paso del tiempo.
+Activa la API una vez en el INI del juego, siguiendo los pasos de abajo. Si ya estaba activa, no hace falta repetirlo. Si no se reciben datos recientes, el estado deja de indicar «En directo»; no se simula el paso del tiempo. El puerto por defecto es 49123; un perfil puede indicar otro mediante `api_port`.
 
 Se ha implementado un cliente de la **Stats API oficial**, sin modificar el juego ni depender de BARL.
 
@@ -55,13 +56,15 @@ Port=49123
 WebPort=49124
 ```
 
-4. Inicia Rocket League, entra a un partido y pulsa **Conectar** en Piruleta Studio.
+4. Inicia Rocket League y entra a un partido. Piruleta Studio se conecta automáticamente.
 
 El cliente escucha el flujo TCP local del puerto indicado y vuelve a conectar si el juego se cierra. El estado de conexión aparece abajo.
 Recibe goles, reloj, prórroga, jugadores, jugador en cámara y estadísticas. El turbo solo está disponible cuando el juego lo proporciona, normalmente como espectador; un dato ausente se muestra con un guion.
 Las victorias de serie se suman al recibir `MatchEnded`, una vez por identificador de partido durante la sesión de la aplicación. Puedes corregirlas con los botones de serie. El total de serie se guarda al cerrar o guardar perfil.
 Los equipos de la aplicación corresponden a los índices de juego 0 (azul) y 1 (naranja): ajusta los nombres cuando cambien de lado.
-Los controles manuales de goles se bloquean mientras la conexión automática está activa. Los controles de serie siguen disponibles para que el realizador pueda corregir el total del torneo. La serie deja de sumar automáticamente al completarse el formato; pulsa **Reiniciar serie** para comenzar otra.
+Los goles no tienen controles manuales. Los controles de serie siguen disponibles para que el realizador pueda corregir el total del torneo. La serie deja de sumar automáticamente al completarse el formato; pulsa **Reiniciar serie** para comenzar otra.
+
+Los números, las barras y el círculo de turbo interpolan los cambios durante 200 ms. El texto rosa «PIRULETA» ya no aparece debajo del esquema integrado.
 
 ## Alcance de esta primera versión
 

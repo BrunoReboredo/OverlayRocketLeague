@@ -7,10 +7,24 @@ import urllib.request
 import tempfile
 from pathlib import Path
 from api_config import enable_stats_api
-from app import Store, GameConnection, make_server, normalize_config, series_state, preview_snapshot
+from app import Store, GameConnection, make_server, normalize_config, series_state, preview_snapshot, swap_team_sides
 
 
 class ScoreboardTests(unittest.TestCase):
+    def test_swap_moves_identities_wins_and_colors_and_is_reversible(self):
+        config = normalize_config({'teams': [{'name': 'Left', 'logo': 'left.png', 'wins': 1},
+                                             {'name': 'Right', 'logo': 'right.png', 'wins': 2}],
+                                   'panel_colors': {'players0': 'coral', 'players1': 'yellow'}})
+        swapped = swap_team_sides(config)
+        self.assertEqual(swapped['teams'][0], config['teams'][1])
+        self.assertEqual(swapped['teams'][1], config['teams'][0])
+        self.assertEqual(swapped['colors']['pink'], config['colors']['yellow'])
+        self.assertEqual(swapped['colors']['yellow'], config['colors']['pink'])
+        self.assertEqual(swapped['panel_colors']['players0'], 'pink')
+        self.assertEqual(swapped['panel_colors']['players1'], 'coral')
+        self.assertEqual(swap_team_sides(swapped), config)
+        self.assertEqual(normalize_config(json.loads(json.dumps(swapped))), swapped)
+
     def test_panel_palette_survives_profiles_and_old_profiles_still_load(self):
         config = normalize_config({'panel_colors': {'boost': 'pink', 'stats': 'coral',
                                                     'players0': 'dark', 'players1': 'yellow'}})
@@ -202,6 +216,8 @@ class ScoreboardTests(unittest.TestCase):
                 self.assertEqual(json.load(response)['config']['event'], 'TORNEO PIRULETA')
             with urllib.request.urlopen(url+'/overlay', timeout=3) as response:
                 self.assertIn(b'background:transparent', response.read())
+            with urllib.request.urlopen(url+'/boost-animation.js', timeout=3) as response:
+                self.assertIn(b'class BoostTween', response.read())
             with urllib.request.urlopen(url+'/preview-state', timeout=3) as response:
                 self.assertEqual(json.load(response)['match']['target'], 'PIRU')
             with urllib.request.urlopen(url+'/state', timeout=3) as response:
