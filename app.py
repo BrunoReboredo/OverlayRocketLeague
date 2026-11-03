@@ -1,4 +1,4 @@
-"""Piruleta Scoreboard. Python 3.11+, standard library only."""
+"""Piruleta / Overlay. Python 3.11+, standard library only."""
 import copy
 import json
 from pathlib import Path
@@ -320,7 +320,7 @@ class App:
             self.server = make_server(self.store)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = f'http://127.0.0.1:{self.server.server_port}/overlay'
-        root.title(f'Piruleta Studio {APP_VERSION} · Marcador Rocket League')
+        root.title(f'Piruleta / Overlay {APP_VERSION}')
         root.geometry('1280x850')
         root.minsize(1050, 850)
         root.configure(bg='#12101a')
@@ -357,7 +357,7 @@ class App:
         self.last_game = self.store.config['game']
         head = tk.Frame(root, bg='#12101a')
         head.pack(fill='x', padx=24, pady=(20, 12))
-        tk.Label(head, text='PIRULETA / STUDIO', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
+        tk.Label(head, text='Piruleta / Overlay', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
         ttk.Button(head, text='Abrir vista previa', command=lambda: webbrowser.open(self.url+'?preview=1')).pack(side='right', padx=4)
         ttk.Button(head, text='Copiar URL para OBS', command=self.copy_url).pack(side='right', padx=4)
         body = ttk.Frame(root)
@@ -601,7 +601,7 @@ class App:
     def copy_url(self):
         self.root.clipboard_clear()
         self.root.clipboard_append(self.url)
-        messagebox.showinfo('URL copiada', self.url+'\n\nOBS → Fuente de navegador → 1920 × 1080.\nMantén Piruleta Studio abierto.')
+        messagebox.showinfo('URL copiada', self.url+'\n\nOBS → Fuente de navegador → 1920 × 1080.\nMantén Piruleta / Overlay abierto.')
 
     def save(self):
         if not self.apply():
