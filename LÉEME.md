@@ -1,4 +1,4 @@
-# Piruleta / Overlay 0.2
+# Piruleta - Overlay 0.2
 
 Aplicación de escritorio para Windows, con un marcador transparente para OBS.
 Basada en las funciones públicas de BARL y las referencias del torneo; es una aplicación independiente.
@@ -56,7 +56,7 @@ Port=49123
 WebPort=49124
 ```
 
-4. Inicia Rocket League y entra a un partido. Piruleta / Overlay se conecta automáticamente.
+4. Inicia Rocket League y entra a un partido. Piruleta - Overlay se conecta automáticamente.
 
 El cliente escucha el flujo TCP local del puerto indicado y vuelve a conectar si el juego se cierra. El estado de conexión aparece abajo.
 Recibe goles, reloj, prórroga, jugadores, jugador en cámara y estadísticas. El turbo solo está disponible cuando el juego lo proporciona, normalmente como espectador; un dato ausente se muestra con un guion.

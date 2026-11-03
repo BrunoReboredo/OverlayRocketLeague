@@ -1,4 +1,4 @@
-# Piruleta / Overlay 0.2
+# Piruleta - Overlay 0.2
 
 La versión 0.2 añade intercambio de equipos con sus colores, turbo animado y conexión exclusivamente automática. Consulta el [historial de cambios](CHANGELOG.md).
 
@@ -34,7 +34,7 @@ También puedes abrir una terminal en la carpeta del proyecto y ejecutar:
 python app.py
 ```
 
-Conserva la carpeta `assets` y los archivos de la aplicación juntos. Mantén Piruleta / Overlay abierto mientras uses el marcador en OBS.
+Conserva la carpeta `assets` y los archivos de la aplicación juntos. Mantén Piruleta - Overlay abierto mientras uses el marcador en OBS.
 
 ## Conectar con Rocket League
 
@@ -62,15 +62,15 @@ Port=49123
 WebPort=49124
 ```
 
-Si la sección ya existe, actualiza sus valores. Los puertos TCP y WebSocket deben ser diferentes. Piruleta / Overlay utiliza la conexión **TCP**, normalmente en `127.0.0.1:49123`.
+Si la sección ya existe, actualiza sus valores. Los puertos TCP y WebSocket deben ser diferentes. Piruleta - Overlay utiliza la conexión **TCP**, normalmente en `127.0.0.1:49123`.
 
-Inicia o reinicia el juego tras cambiar el archivo. Piruleta / Overlay conecta y reconecta automáticamente.
+Inicia o reinicia el juego tras cambiar el archivo. Piruleta - Overlay conecta y reconecta automáticamente.
 
 La configuración y la disponibilidad de los datos están descritas en la [documentación oficial de Stats API](https://www.rocketleague.com/developer/stats-api?lang=en).
 
 ## Añadir el marcador a OBS
 
-1. Abre Piruleta / Overlay y pulsa **Copiar URL para OBS**.
+1. Abre Piruleta - Overlay y pulsa **Copiar URL para OBS**.
 2. En la escena de OBS, añade una **Fuente de navegador**.
 3. Pega la URL y configura el tamaño en **1920 × 1080**.
 4. Coloca la fuente por encima de la captura de Rocket League.
@@ -124,7 +124,7 @@ Se activa al abrir la aplicación y permanece conectado mientras está abierta.
 - Si faltan datos recientes, el estado deja de indicar «En directo». El reloj conserva el último dato recibido hasta que lleguen nuevas actualizaciones.
 - Si se cierra el juego o se pierde la conexión, la aplicación vuelve a intentar conectarse.
 
-Los nombres y escudos de los equipos son los que configures en Piruleta / Overlay. **Equipo 1 corresponde al lado azul del juego y Equipo 2 al naranja**. Ajusta la identidad de los equipos si cambian de lado.
+Los nombres y escudos de los equipos son los que configures en Piruleta - Overlay. **Equipo 1 corresponde al lado azul del juego y Equipo 2 al naranja**. Ajusta la identidad de los equipos si cambian de lado.
 
 ### Resultado de la serie
 
