@@ -1,6 +1,6 @@
-# Piruleta - Overlay 0.2
+# Piruleta - Overlay 1.0
 
-La versión 0.2 añade intercambio de equipos con sus colores, turbo animado y conexión exclusivamente automática. Consulta el [historial de cambios](CHANGELOG.md).
+La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
 Aplicación de escritorio para Windows que permite diseñar y controlar un marcador de Rocket League para retransmisiones. Incluye la identidad visual del Torneo Piruleta y una fuente transparente para OBS.
 
@@ -93,8 +93,8 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 | --- | --- |
 | **Textos** | Edición manual del nombre del torneo, ronda, partido de la serie, nombres de equipos y escudos. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
-| **Fondos** | Fondo del turbo, caja de estadísticas y jugadores de cada equipo, vinculados a los colores de la paleta principal. |
-| **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. |
+| **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
+| **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. Permite elegir el PNG de la marca (hasta 4 MB) o restablecer el original; su nombre procede de Textos. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
 
@@ -176,3 +176,7 @@ Esta versión no incluye instalador independiente, editor con arrastre, escenas 
 | `assets/` | Recursos visuales del torneo. |
 
 Referencia de inspiración: [BARL](https://lndrlndr.github.io/BARL/).
+
+## Visibilidad automática
+
+La fuente de OBS solo se muestra en partidos privados online, de exhibición local o LAN (PlaylistId 6, 8 y 24). Se oculta al terminar o salir del partido, en modos públicos, entrenamiento, repeticiones guardadas y si se pierde la conexión. Los modos desconocidos se mantienen ocultos. Las repeticiones de gol dentro del partido conservan el marcador. La vista previa sigue mostrando los datos de ejemplo.

@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.0.0
+
+- Estilo rounded y tipografía Verdana por defecto.
+- Fondos independientes de turbo y estadísticas para cada equipo, vinculados a la paleta de Diseño y al jugador en cámara.
+- Marcador con fondo degradado o plano.
+- PNG personalizable para la marca del torneo (hasta 4 MB), incluido en los perfiles. El nombre se toma de Textos.
+- Compatibilidad con perfiles anteriores y con el intercambio de equipos.
+
 ## 0.2.0
 
 - Eliminado el texto rosa «PIRULETA» del esquema integrado debajo del marcador.

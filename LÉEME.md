@@ -1,4 +1,4 @@
-# Piruleta - Overlay 0.2
+# Piruleta - Overlay 1.0
 
 Aplicación de escritorio para Windows, con un marcador transparente para OBS.
 Basada en las funciones públicas de BARL y las referencias del torneo; es una aplicación independiente.
@@ -13,8 +13,8 @@ También puedes ejecutar `python app.py` desde esta carpeta. Mantén la aplicaci
 - **Textos:** edición manual de nombres, escudos PNG/JPG, torneo, fase y número de partido.
 - **Cambiar equipos de lado:** en Textos, intercambia nombres, logos, colores, fondos de jugadores y victorias de serie. Los datos del partido siguen los lados que envía el juego.
 - **Diseño:** cinco colores, tres estilos, tipografía, escala, opacidad y posición del marcador superior en un lienzo de 1920 × 1080.
-- **Fondos:** colores del turbo, estadísticas y paneles de jugadores vinculados a la paleta principal; cada panel puede elegir un color diferente. Se guardan en el perfil.
-- **Elementos:** checks para activar o desactivar escudos, jugadores, estadísticas, turbo, marca y avisos. Check marcado significa función activa.
+- **Fondos:** turbo y estadísticas con colores independientes para cada equipo, que cambian con el jugador en cámara. Selección desde la paleta de Diseño y fondo del marcador plano o degradado. Todo se guarda en el perfil.
+- **Elementos:** checks para activar o desactivar escudos, jugadores, estadísticas, turbo, marca y avisos. Check marcado significa función activa. Puedes elegir un PNG para la marca del torneo (hasta 4 MB); el nombre procede de Textos.
 - **Posiciones:** coordenadas y escala independiente de los paneles de jugadores, estadísticas, turbo, marca y avisos.
 - **CSS libre:** ajustar cualquier detalle del diseño con estilos propios opcionales.
 - **Control del partido:** formato BO1, BO2, BO3, BO4, BO5 o BO7, goles y victorias de serie. Los indicadores se adaptan al formato. BO2 y BO4 admiten empate al agotar las partidas. Tiempo y prórroga proceden exclusivamente de la API.
@@ -76,3 +76,5 @@ No modifica el balón del juego. Un balón personalizado requiere un trabajo sep
 
 - BARL: https://lndrlndr.github.io/BARL/
 - Stats API oficial y disponibilidad de campos: https://www.rocketleague.com/developer/stats-api?lang=en
+
+El estilo por defecto es rounded y la tipografía Verdana. Los perfiles existentes conservan su estilo y tipografía; puedes cambiarlos en Diseño.
