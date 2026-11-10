@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '1.0.0'
+APP_VERSION = '1.1.0'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -56,7 +56,7 @@ DEFAULT = {
     'show_boost': True, 'show_brand': True, 'show_events': True,
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
-    'scoreboard_gradient': True, 'brand_logo': '',
+    'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta',
     'panel_colors': {'boost0': 'pink', 'boost1': 'yellow', 'stats0': 'pink', 'stats1': 'yellow',
                      'players0': 'dark', 'players1': 'dark'},
     'panels': {'players0': [24, 180, 100], 'players1': [1601, 180, 100],
@@ -82,8 +82,12 @@ def normalize_config(raw):
     for key in c:
         if key.startswith('show_') or key == 'auto_series':
             c[key] = bool(raw.get(key, c[key]))
-    if raw.get('design') in ('angular', 'rounded', 'classic'):
+    if raw.get('design') in ('angular', 'rounded', 'classic', 'RCK'):
         c['design'] = raw['design']
+    if raw.get('goal_style') == 'Original':
+        c['goal_style'] = 'Torneo Piruleta'
+    if raw.get('goal_style') in ('Torneo Piruleta', 'Bigness League', 'RCS'):
+        c['goal_style'] = raw['goal_style']
     c['scoreboard_gradient'] = bool(raw.get('scoreboard_gradient', True))
     c['brand_logo'] = str(raw.get('brand_logo', ''))[:MAX_LOGO_DATA_URL_CHARS]
     for panel in ('boost', 'stats'):
@@ -128,14 +132,22 @@ class Store:
         self.playlist_id = None
         self.match_closed = False
         self.history_replay = False
+        self.goal_sequence = 0
+        self.goal_until = 0
+        self.goal_team = 0
+        self.goal_armed = True
+        self.in_goal_replay = False
 
     def snapshot(self):
         with self.lock:
             if time.monotonic() > self.banner_until:
                 self.match['banner'] = ''
-            return copy.deepcopy({'config': self.config, 'match': self.match,
+            goal_remaining = max(0, int((self.goal_until-time.monotonic())*1000))
+            return copy.deepcopy({'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
+                                                 'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
-                                      and not self.match_closed and not self.history_replay
+                                      and (not self.match_closed or (goal_remaining > 0 and self.config['show_events']))
+                                      and not self.history_replay
                                       and self.automatic and self.last_update > 0
                                       and time.monotonic()-self.last_update < 5),
                                   'series': series_state(self.config),
@@ -186,25 +198,44 @@ class Store:
                 m['target'] = (g.get('Target') or {}).get('Name', '')
                 self.last_update = time.monotonic()
             elif event == 'MatchCreated':
+                self.goal_armed = True
+                self.in_goal_replay = False
+                self.goal_until = 0
                 self.playlist_id = None
                 self.match_closed = False
                 self.history_replay = False
                 m['players'], m['target'], m['banner'] = [], '', ''
             elif event == 'ReplayCreated':
                 self.history_replay = True
+                self.goal_until = 0
             elif event == 'ClockUpdatedSeconds':
                 m['time'] = int(d.get('TimeSeconds', 0))
                 m['overtime'] = bool(d.get('bOvertime', False))
+            elif event == 'GoalReplayStart':
+                self.in_goal_replay = True
+                self.goal_armed = False
+            elif event in ('GoalReplayEnd', 'GoalReplayWillEnd'):
+                # Replay completion must not arm another celebration.
+                self.in_goal_replay = False if event == 'GoalReplayEnd' else self.in_goal_replay
+            elif event == 'RoundStarted':
+                self.in_goal_replay = False
+                self.goal_armed = True
             elif event == 'GoalScored':
-                # Goals update from UpdateState; no on-screen goal/scorer messages.
+                # No scorer message: only a three-second graphic transition.
                 m['banner'] = ''
-                self.banner_until = 0
+                if (self.config['show_events'] and self.playlist_id in PRIVATE_PLAYLISTS
+                        and not self.history_replay and not self.match_closed
+                        and self.goal_armed and not self.in_goal_replay):
+                    self.goal_armed = False
+                    self.goal_sequence += 1
+                    self.goal_until = time.monotonic() + 3
+                    scorer = d.get('Scorer') or {}
+                    self.goal_team = scorer.get('TeamNum', 0) if scorer.get('TeamNum') in (0, 1) else 0
             elif event == 'MatchEnded':
                 self.match_closed = True
                 winner, guid = d.get('WinnerTeamNum'), d.get('MatchGuid')
                 if winner in (0, 1):
-                    m['banner'] = 'VICTORIA · ' + self.config['teams'][winner]['name']
-                    self.banner_until = time.monotonic() + 12
+                    m['banner'] = ''
                     if (self.config['auto_series'] and guid and guid not in self.finished
                             and self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay):
                         self.finished.add(guid)
@@ -212,6 +243,7 @@ class Store:
                             self.config['teams'][winner]['wins'] += 1
                             self.config['game'] = series_state(self.config)['game']
             elif event == 'MatchDestroyed':
+                self.goal_until = 0
                 self.playlist_id = None
                 self.match_closed = True
                 m['players'], m['target'] = [], ''
@@ -322,7 +354,7 @@ def make_server(store, port=0):
             elif route == '/boost-animation.js':
                 data = (ROOT / 'boost-animation.js').read_bytes()
                 mime = 'application/javascript; charset=utf-8'
-            elif route in ('/assets/torneo.png', '/assets/discord.png'):
+            elif route in ('/assets/torneo.png', '/assets/discord.png', '/assets/bigness-league.png', '/assets/rcs.png'):
                 data = (ROOT / route.lstrip('/')).read_bytes()
                 mime = 'image/png'
             else:
@@ -471,17 +503,27 @@ class App:
         colorrow.pack(fill='x', pady=5)
         for key, title in [('pink', 'Equipo A'), ('coral', 'Coral'), ('yellow', 'Equipo B'), ('dark', 'Fondo'), ('text', 'Texto')]:
             ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).pack(side='left', padx=2)
-        self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic'])
+        self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic', 'RCK'])
         self.entry(design, 'Tipografía', 'font', choices=['Arial', 'Segoe UI', 'Verdana', 'Trebuchet MS', 'Impact'])
         self.entry(design, 'Escala (%)', 'scale', numeric=(50, 150))
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_brand', 'Marca del torneo'), ('show_events', 'Aviso de victoria'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_brand', 'Marca del torneo'), ('show_events', 'Cortina de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=2)
+        curtain_row = ttk.Frame(visibility)
+        curtain_row.pack(fill='x', pady=3)
+        ttk.Label(curtain_row, text='Diseño de cortina', width=19).pack(side='left')
+        self.vars['goal_style'] = tk.StringVar(value=self.store.config['goal_style'])
+        curtain_selector = ttk.Combobox(curtain_row, textvariable=self.vars['goal_style'],
+                                       values=['Torneo Piruleta', 'Bigness League', 'RCS'], state='readonly', width=18)
+        curtain_selector.pack(side='left', fill='x', expand=True)
+        curtain_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
+        ttk.Button(curtain_row, text='Probar cortina', style='Control.TButton',
+                   command=self.preview_goal).pack(side='left', padx=(5, 0))
         brand_row = ttk.Frame(visibility)
         brand_row.pack(fill='x', pady=6)
         ttk.Button(brand_row, text='PNG de la marca…', command=self.brand_logo).pack(side='left')
@@ -517,8 +559,14 @@ class App:
         ttk.Separator(right).pack(fill='x', pady=10)
         ttk.Button(right, text='Guardar perfil…', style='Control.TButton', command=self.save).pack(fill='x', pady=3)
         ttk.Button(right, text='Cargar perfil…', style='Control.TButton', command=self.load).pack(fill='x', pady=3)
-        self.status = tk.Label(root, bg='#12101a', fg='#ffce72', anchor='w', padx=24, pady=13)
-        self.status.pack(side='bottom', fill='x', before=body)
+        footer = tk.Frame(root, bg='#12101a', padx=24, pady=8)
+        footer.pack(side='bottom', fill='x', before=body)
+        self.credits = tk.Label(footer, text=f'Versión {APP_VERSION}\nAplicación desarrollada por Bruno Reboredo Álvarez',
+                                bg='#12101a', fg='#b6a4c3', font=('Segoe UI', 9), justify='right', anchor='e')
+        self.credits.pack(side='right', anchor='se', padx=(16, 0))
+        self.status = tk.Label(footer, bg='#12101a', fg='#ffce72', anchor='w', justify='left', width=1)
+        self.status.pack(side='left', fill='both', expand=True)
+        self.status.bind('<Configure>', lambda event: self.status.configure(wraplength=max(100, event.width)))
         self.root.protocol('WM_DELETE_WINDOW', self.close)
         self.connect()
         self.refresh()
@@ -551,7 +599,16 @@ class App:
                 raw['custom_css'] = self.css.get('1.0', 'end-1c')
                 palette_keys = {label: key for key, label in self.palette_labels.items()}
                 raw['panel_colors'] = {key: palette_keys[var.get()] for key, var in self.panel_color_vars.items()}
+                entering_rck = raw['design'] == 'RCK' and self.store.config['design'] != 'RCK'
+                if entering_rck:
+                    raw['colors'].update(pink='#bdb0e4', yellow='#96c9da', coral='#d9e0eb', dark='#071640', text='#ffffff')
+                    raw.update(x=360, y=36, scale=100)
+                    raw['panels'].update(players0=[60, 125, 100], players1=[1565, 125, 100],
+                                         focus=[76, 944, 100], boost=[1590, 775, 140])
+                    raw['panel_colors'].update(players0='dark', players1='dark', stats0='pink', stats1='yellow', boost0='dark', boost1='dark')
                 self.store.config = normalize_config(raw)
+            if entering_rck:
+                self.sync()
             self.draw()
             return True
         except (ValueError, TypeError) as exc:
@@ -596,6 +653,11 @@ class App:
     def clear_logo(self, i):
         with self.store.lock:
             self.store.config['teams'][i]['logo'] = ''
+
+    def preview_goal(self):
+        if self.apply():
+            style = {'Bigness League': 'bigness', 'RCS': 'rcs'}.get(self.store.config['goal_style'], 'original')
+            webbrowser.open(self.url+'?preview=1&goal=1&curtain='+style)
 
     def brand_logo(self):
         import base64

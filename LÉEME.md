@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.0
+# Piruleta - Overlay 1.1.0
 
 Aplicación de escritorio para Windows, con un marcador transparente para OBS.
 Basada en las funciones públicas de BARL y las referencias del torneo; es una aplicación independiente.

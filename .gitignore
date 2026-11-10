@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 ultimo_perfil.json
 
+
+# Local Windows shortcuts contain machine-specific absolute paths.
+*.lnk

@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.0
+# Piruleta - Overlay 1.1.0
 
 La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
@@ -180,3 +180,15 @@ Referencia de inspiración: [BARL](https://lndrlndr.github.io/BARL/).
 ## Visibilidad automática
 
 La fuente de OBS solo se muestra en partidos privados online, de exhibición local o LAN (PlaylistId 6, 8 y 24). Se oculta al terminar o salir del partido, en modos públicos, entrenamiento, repeticiones guardadas y si se pierde la conexión. Los modos desconocidos se mantienen ocultos. Las repeticiones de gol dentro del partido conservan el marcador. La vista previa sigue mostrando los datos de ejemplo.
+
+## Cortina de gol
+
+En Elementos, Cortina de gol sustituye al aviso de victoria. Al recibir un gol de un partido privado se muestra durante 3 segundos un barrido diagonal con la paleta de Diseño y el PNG de la marca del torneo. Durante la animación se ocultan los gráficos del overlay; después vuelven automáticamente. No cambia la escena de OBS, no incorpora una pelota ni mensajes de goleador. Probar cortina de gol abre una vista previa independiente del partido. El ajuste se conserva en perfiles mediante show_events para mantener compatibilidad.
+
+En Elementos → Diseño de cortina puedes elegir Original o Bigness League. La segunda utiliza el logo de Bigness League incluido en assets y una paleta azul cian, negro, gris y dorado propia. Ambas duran tres segundos y se activan una sola vez por gol, sin repetirse al terminar la replay. La elección se guarda en el perfil.
+
+## Estilo RCK y cortinas
+
+Diseño → Estilo → RCK aplica un preset inspirado en la referencia: cabecera con torneo, fase y ronda; placas inclinadas; paleta lavanda, azul claro y azul marino; barras laterales compactas; estadísticas horizontales y turbo de doble aro. Al elegirlo se ajustan colores y posiciones, que puedes personalizar después. Los datos siguen sincronizados con el juego.
+
+Las cortinas disponibles son Torneo Piruleta (antes Original), Bigness League y RCS. RCS utiliza el logo incluido y los colores #c80516 y #f9cd36. Los perfiles que guardaban Original se actualizan automáticamente al nombre Torneo Piruleta.

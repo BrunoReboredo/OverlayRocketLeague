@@ -1,21 +1,30 @@
 @echo off
 setlocal
+title Piruleta - Overlay 1.1.0
 cd /d "%~dp0"
 if not exist "%~dp0app.py" (
   echo No se encuentra app.py en la carpeta de Piruleta - Overlay.
   pause
   exit /b 1
 )
+if exist "C:\Python313\pythonw.exe" (
+  start "Piruleta - Overlay" /wait "C:\Python313\pythonw.exe" -B "%~dp0app.py"
+  if not errorlevel 1 exit /b 0
+  goto error
+)
 where pythonw.exe >nul 2>&1
 if not errorlevel 1 (
-  start "" pythonw.exe -B "%~dp0app.py"
-  exit /b 0
+  start "Piruleta - Overlay" /wait pythonw.exe -B "%~dp0app.py"
+  if not errorlevel 1 exit /b 0
+  goto error
 )
 where py.exe >nul 2>&1
 if not errorlevel 1 (
   py.exe -3 -B "%~dp0app.py"
   if not errorlevel 1 exit /b 0
 )
-echo No se pudo abrir Piruleta - Overlay. Instala Python 3.11 o posterior con Tkinter.
+:error
+echo No se pudo abrir Piruleta - Overlay. Se necesita Python 3.11 o posterior con Tkinter.
+echo Cierra la ventana anterior de la app antes de abrir la nueva version.
 pause
 exit /b 1

@@ -1,5 +1,15 @@
 # Cambios
 
+## 1.1.0
+
+- Nuevo estilo RCK con placas inclinadas, barras compactas, estadísticas horizontales y turbo de doble aro.
+- Cortinas de gol de tres segundos: Torneo Piruleta, Bigness League y RCS.
+- Una sola cortina por gol, sin repetirse durante o al finalizar la replay.
+- Selector de cortina, previsualización y compatibilidad de perfiles anteriores.
+- Versión y crédito a Bruno Reboredo Álvarez en la esquina inferior derecha de la aplicación.
+- Launcher actualizado.
+
+
 ## 1.0.0
 
 - Estilo rounded y tipografía Verdana por defecto.
