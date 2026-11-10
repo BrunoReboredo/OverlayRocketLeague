@@ -56,13 +56,38 @@ DEFAULT = {
     'show_boost': True, 'show_brand': True, 'show_events': True,
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
-    'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta',
+    'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
     'panel_colors': {'boost0': 'pink', 'boost1': 'yellow', 'stats0': 'pink', 'stats1': 'yellow',
                      'players0': 'dark', 'players1': 'dark'},
     'panels': {'players0': [24, 180, 100], 'players1': [1601, 180, 100],
                'focus': [36, 880, 100], 'boost': [1695, 860, 120],
                'brand': [820, 154, 100], 'banner': [460, 370, 100]},
 }
+
+
+DESIGN_FIELDS = ('colors', 'panels', 'panel_colors', 'x', 'y', 'scale')
+
+
+def switch_design(raw, previous):
+    """Keep the regular layout and RCK layout independent across style changes."""
+    old_group = 'RCK' if previous == 'RCK' else 'standard'
+    new_group = 'RCK' if raw['design'] == 'RCK' else 'standard'
+    if old_group == new_group:
+        return raw
+    raw = copy.deepcopy(raw)
+    presets = raw.setdefault('design_presets', {})
+    presets[old_group] = {key: copy.deepcopy(raw[key]) for key in DESIGN_FIELDS}
+    incoming = copy.deepcopy(presets.get(new_group))
+    if incoming is None:
+        incoming = {key: copy.deepcopy(DEFAULT[key]) for key in DESIGN_FIELDS}
+        if new_group == 'RCK':
+            incoming['colors'].update(pink='#bdb0e4', yellow='#96c9da', coral='#d9e0eb', dark='#071640', text='#ffffff')
+            incoming.update(x=500, y=0, scale=100)
+            incoming['panels'].update(players0=[24, 190, 100], players1=[1601, 190, 100],
+                                      focus=[36, 925, 100], boost=[1695, 860, 120])
+            incoming['panel_colors'].update(players0='dark', players1='dark', stats0='pink', stats1='yellow', boost0='dark', boost1='dark')
+    raw.update(incoming)
+    return raw
 
 
 def normalize_config(raw):
@@ -115,6 +140,37 @@ def normalize_config(raw):
                          'wins': max(0, min(c['bestof']//2+1, int(team.get('wins', 0))))}
     if sum(t['wins'] for t in c['teams']) > c['bestof']:
         raise ValueError('Las victorias superan los partidos del formato. Reinicia la serie antes de cambiarlo.')
+    presets = raw.get('design_presets', {})
+    if isinstance(presets, dict):
+        for group in ('standard', 'RCK'):
+            if isinstance(presets.get(group), dict):
+                # Normalize cached layouts without recursively copying caches.
+                saved = normalize_config({'design': 'RCK' if group == 'RCK' else 'rounded',
+                                          'rck_layout_revision': raw.get('rck_layout_revision', 1),
+                                          **{key: presets[group][key] for key in DESIGN_FIELDS if key in presets[group]}})
+                c['design_presets'][group] = {key: copy.deepcopy(saved[key]) for key in DESIGN_FIELDS}
+    # Early RCK releases overwrote the regular layout in existing profiles.
+    # Recognize the exact shipped preset rather than treating user colors as RCK.
+    rck_palette = {'pink': '#bdb0e4', 'yellow': '#96c9da', 'coral': '#d9e0eb',
+                   'dark': '#071640', 'text': '#ffffff'}
+    if (c['design'] != 'RCK' and not c['design_presets']
+            and c['colors'] == rck_palette and c['y'] == 36
+            and c['panels']['focus'] == [76, 944, 100]
+            and c['panels']['boost'] == [1590, 775, 140]):
+        c['design_presets']['RCK'] = {key: copy.deepcopy(c[key]) for key in DESIGN_FIELDS}
+        for key in DESIGN_FIELDS:
+            c[key] = copy.deepcopy(DEFAULT[key])
+    if raw.get('rck_layout_revision', 1) != 2:
+        layouts = ([c] if c['design'] == 'RCK' else []) + ([c['design_presets']['RCK']] if 'RCK' in c['design_presets'] else [])
+        for layout in layouts:
+            if layout['x'] == 360 and layout['y'] == 36:
+                layout.update(x=500, y=0)
+            for key, old, new in [('players0', [60, 125, 100], [24, 190, 100]),
+                                  ('players1', [1565, 125, 100], [1601, 190, 100]),
+                                  ('focus', [76, 944, 100], [36, 925, 100]),
+                                  ('boost', [1590, 775, 140], [1695, 860, 120])]:
+                if layout['panels'][key] == old:
+                    layout['panels'][key] = new
     return c
 
 
@@ -599,15 +655,10 @@ class App:
                 raw['custom_css'] = self.css.get('1.0', 'end-1c')
                 palette_keys = {label: key for key, label in self.palette_labels.items()}
                 raw['panel_colors'] = {key: palette_keys[var.get()] for key, var in self.panel_color_vars.items()}
-                entering_rck = raw['design'] == 'RCK' and self.store.config['design'] != 'RCK'
-                if entering_rck:
-                    raw['colors'].update(pink='#bdb0e4', yellow='#96c9da', coral='#d9e0eb', dark='#071640', text='#ffffff')
-                    raw.update(x=360, y=36, scale=100)
-                    raw['panels'].update(players0=[60, 125, 100], players1=[1565, 125, 100],
-                                         focus=[76, 944, 100], boost=[1590, 775, 140])
-                    raw['panel_colors'].update(players0='dark', players1='dark', stats0='pink', stats1='yellow', boost0='dark', boost1='dark')
+                changed_layout = (raw['design'] == 'RCK') != (self.store.config['design'] == 'RCK')
+                raw = switch_design(raw, self.store.config['design'])
                 self.store.config = normalize_config(raw)
-            if entering_rck:
+            if changed_layout:
                 self.sync()
             self.draw()
             return True
