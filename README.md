@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.1.0
+# Piruleta - Overlay 1.2.0
 
 La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
@@ -91,7 +91,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 
 | Pestaña | Opciones |
 | --- | --- |
-| **Textos** | Edición manual del nombre del torneo, ronda, partido de la serie, nombres de equipos y escudos. |
+| **Textos** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
 | **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
 | **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. Permite elegir el PNG de la marca (hasta 4 MB) o restablecer el original; su nombre procede de Textos. |

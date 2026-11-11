@@ -1,7 +1,7 @@
 @echo off
 setlocal
-rem Version actual: RCK ajustado a la referencia de video. Cierra la app anterior antes de abrir.
-title Piruleta - Overlay 1.1.0
+rem Version actual: textos libres y numero de partido automatico. Cierra la app anterior antes de abrir.
+title Piruleta - Overlay 1.2.0
 cd /d "%~dp0"
 if not exist "%~dp0app.py" (
   echo No se encuentra app.py en la carpeta de Piruleta - Overlay.

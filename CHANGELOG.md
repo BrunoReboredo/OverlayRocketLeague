@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.2.0
+
+- Barra superior RCK rediseñada, con paleta original, barras laterales al borde y ajustes de posición en turbo y estadísticas.
+- Textos superior e inferior personalizables con `[GAME]` y `[SERIE]`. El número de partido se calcula a partir de la serie.
+- Nueva cortina de gol RCK.
+- Montserrat incluida e importación de fuentes TTF, OTF, WOFF y WOFF2.
+- Entrada de colores hexadecimales y controles ampliados tras retirar el esquema integrado.
+
 ## 1.1.0
 
 - Nuevo estilo RCK con placas inclinadas, barras compactas, estadísticas horizontales y turbo de doble aro.
