@@ -68,7 +68,7 @@ DEFAULT = {
     'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True,
-    'show_boost': True, 'show_brand': True, 'show_events': True,
+    'show_boost': True, 'show_events': True,
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
     'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
@@ -76,7 +76,7 @@ DEFAULT = {
                      'players0': 'dark', 'players1': 'dark'},
     'panels': {'players0': [24, 180, 100], 'players1': [1601, 180, 100],
                'focus': [36, 880, 100], 'boost': [1695, 860, 120],
-               'brand': [820, 154, 100], 'banner': [460, 370, 100]},
+               'banner': [460, 370, 100]},
 }
 
 
@@ -556,7 +556,7 @@ class App:
                   wraplength=500, foreground='#b6a4c3').pack(anchor='w', pady=12)
         self.panel_vars = {}
         ttk.Label(layout, text='Panel                       X               Y          Escala %').pack(anchor='w')
-        for key, label in [('players0', 'Jugadores A'), ('players1', 'Jugadores B'), ('focus', 'Estadísticas'), ('boost', 'Turbo'), ('brand', 'Marca'), ('banner', 'Avisos')]:
+        for key, label in [('players0', 'Jugadores A'), ('players1', 'Jugadores B'), ('focus', 'Estadísticas'), ('boost', 'Turbo'), ('banner', 'Avisos')]:
             row = ttk.Frame(layout)
             row.pack(fill='x', pady=5)
             ttk.Label(row, text=label, width=20).pack(side='left')
@@ -594,7 +594,7 @@ class App:
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_brand', 'Marca del torneo'), ('show_events', 'Cortina de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
@@ -609,12 +609,6 @@ class App:
         curtain_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
         ttk.Button(curtain_row, text='Probar cortina', style='Control.TButton',
                    command=self.preview_goal).pack(side='left', padx=(5, 0))
-        brand_row = ttk.Frame(visibility)
-        brand_row.pack(fill='x', pady=6)
-        ttk.Button(brand_row, text='PNG de la marca…', command=self.brand_logo).pack(side='left')
-        ttk.Button(brand_row, text='Restablecer PNG', command=self.reset_brand_logo).pack(side='left', padx=5)
-        ttk.Label(visibility, text='El nombre de la marca se toma del texto de arriba en Textos.',
-                  wraplength=500, foreground='#b6a4c3').pack(anchor='w')
         ttk.Button(left, text='Aplicar diseño', style='Control.TButton', command=self.apply).pack(anchor='e')
         ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 10))
         ttk.Label(right, text='Formato de la serie', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
@@ -821,26 +815,6 @@ class App:
         if self.apply():
             style = {'Bigness League': 'bigness', 'RCS': 'rcs', 'RCK': 'rck'}.get(self.store.config['goal_style'], 'original')
             webbrowser.open(self.url+'?preview=1&goal=1&curtain='+style)
-
-    def brand_logo(self):
-        import base64
-        path = filedialog.askopenfilename(parent=self.root, filetypes=[('Imagen PNG', '*.png')])
-        if not path:
-            return
-        try:
-            data = Path(path).read_bytes()
-            if not data.startswith(b'\x89PNG\r\n\x1a\n'):
-                raise ValueError('Selecciona una imagen PNG válida.')
-            if len(data) > MAX_LOGO_BYTES:
-                raise ValueError('El tamaño máximo de la marca es de 4 MB.')
-            with self.store.lock:
-                self.store.config['brand_logo'] = 'data:image/png;base64,' + base64.b64encode(data).decode()
-        except (OSError, ValueError) as exc:
-            messagebox.showerror('No se pudo cargar el PNG', str(exc), parent=self.root)
-
-    def reset_brand_logo(self):
-        with self.store.lock:
-            self.store.config['brand_logo'] = ''
 
     def swap_teams(self):
         if not self.apply():

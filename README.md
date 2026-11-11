@@ -94,7 +94,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 | **Textos** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
 | **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
-| **Elementos** | Checks para escudos, jugadores, estadísticas, turbo, marca, avisos y conteo automático de victorias. Check marcado = función activa. Permite elegir el PNG de la marca (hasta 4 MB) o restablecer el original; su nombre procede de Textos. |
+| **Elementos** | Escudos, jugadores, estadísticas, turbo, cortina de gol y conteo automático de victorias. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
 
@@ -183,7 +183,7 @@ La fuente de OBS solo se muestra en partidos privados online, de exhibición loc
 
 ## Cortina de gol
 
-En Elementos, Cortina de gol sustituye al aviso de victoria. Al recibir un gol de un partido privado se muestra durante 3 segundos un barrido diagonal con la paleta de Diseño y el PNG de la marca del torneo. Durante la animación se ocultan los gráficos del overlay; después vuelven automáticamente. No cambia la escena de OBS, no incorpora una pelota ni mensajes de goleador. Probar cortina de gol abre una vista previa independiente del partido. El ajuste se conserva en perfiles mediante show_events para mantener compatibilidad.
+En Elementos, Cortina de gol sustituye al aviso de victoria. Al recibir un gol de un partido privado se muestra durante 3 segundos un barrido diagonal con la paleta de Diseño y el logo de la cortina elegida. Durante la animación se ocultan los gráficos del overlay; después vuelven automáticamente. No cambia la escena de OBS, no incorpora una pelota ni mensajes de goleador. Probar cortina de gol abre una vista previa independiente del partido. El ajuste se conserva en perfiles mediante show_events para mantener compatibilidad.
 
 En Elementos → Diseño de cortina puedes elegir Original o Bigness League. La segunda utiliza el logo de Bigness League incluido en assets y una paleta azul cian, negro, gris y dorado propia. Ambas duran tres segundos y se activan una sola vez por gol, sin repetirse al terminar la replay. La elección se guarda en el perfil.
 
