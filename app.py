@@ -515,7 +515,7 @@ class App:
         self.vars, self.team_vars = {}, [{}, {}]
         head = tk.Frame(root, bg='#12101a')
         head.pack(fill='x', padx=24, pady=(20, 12))
-        tk.Label(head, text='Piruleta - Overlay', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
+        tk.Label(head, text='PIRULETA - Overlay', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
         ttk.Button(head, text='Abrir vista previa', command=lambda: webbrowser.open(self.url+'?preview=1')).pack(side='right', padx=4)
         ttk.Button(head, text='Copiar URL para OBS', command=self.copy_url).pack(side='right', padx=4)
         body = ttk.Frame(root)
