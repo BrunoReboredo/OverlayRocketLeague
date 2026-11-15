@@ -1,6 +1,7 @@
 """Piruleta - Overlay. Python 3.11+, standard library only."""
 import copy
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -14,7 +15,7 @@ from urllib.parse import unquote
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '1.2.0'
+APP_VERSION = '1.2.1'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -68,7 +69,7 @@ DEFAULT = {
     'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True,
-    'show_boost': True, 'show_events': True,
+    'show_boost': True, 'show_events': True, 'show_goal_replay': True,
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
     'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
@@ -207,16 +208,20 @@ class Store:
         self.goal_team = 0
         self.goal_armed = True
         self.in_goal_replay = False
+        self.last_goal = None
 
     def snapshot(self):
         with self.lock:
             if time.monotonic() > self.banner_until:
                 self.match['banner'] = ''
             goal_remaining = max(0, int((self.goal_until-time.monotonic())*1000))
-            return copy.deepcopy({'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
+            replay = (self.last_goal if self.in_goal_replay and not self.history_replay
+                      and self.config['show_goal_replay'] and self.config['design'] != 'RCK' else None)
+            return copy.deepcopy({'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
                                                  'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
-                                      and (not self.match_closed or (goal_remaining > 0 and self.config['show_events']))
+                                      and (not self.match_closed or replay is not None
+                                           or (goal_remaining > 0 and self.config['show_events']))
                                       and not self.history_replay
                                       and self.automatic and self.last_update > 0
                                       and time.monotonic()-self.last_update < 5),
@@ -268,6 +273,7 @@ class Store:
                 m['target'] = (g.get('Target') or {}).get('Name', '')
                 self.last_update = time.monotonic()
             elif event == 'MatchCreated':
+                self.last_goal = None
                 self.goal_armed = True
                 self.in_goal_replay = False
                 self.goal_until = 0
@@ -276,6 +282,7 @@ class Store:
                 self.history_replay = False
                 m['players'], m['target'], m['banner'] = [], '', ''
             elif event == 'ReplayCreated':
+                self.last_goal = None
                 self.history_replay = True
                 self.goal_until = 0
             elif event == 'ClockUpdatedSeconds':
@@ -284,23 +291,30 @@ class Store:
             elif event == 'GoalReplayStart':
                 self.in_goal_replay = True
                 self.goal_armed = False
-            elif event in ('GoalReplayEnd', 'GoalReplayWillEnd'):
-                # Replay completion must not arm another celebration.
-                self.in_goal_replay = False if event == 'GoalReplayEnd' else self.in_goal_replay
+            elif event in ('GoalReplayEnd', 'PodiumStart'):
+                self.in_goal_replay = False
+                self.last_goal = None
             elif event == 'RoundStarted':
                 self.in_goal_replay = False
                 self.goal_armed = True
+                self.last_goal = None
             elif event == 'GoalScored':
-                # No scorer message: only a three-second graphic transition.
-                m['banner'] = ''
-                if (self.config['show_events'] and self.playlist_id in PRIVATE_PLAYLISTS
-                        and not self.history_replay and not self.match_closed
-                        and self.goal_armed and not self.in_goal_replay):
+                if (self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay
+                        and not self.match_closed and self.goal_armed and not self.in_goal_replay):
                     self.goal_armed = False
-                    self.goal_sequence += 1
-                    self.goal_until = time.monotonic() + 3
-                    scorer = d.get('Scorer') or {}
-                    self.goal_team = scorer.get('TeamNum', 0) if scorer.get('TeamNum') in (0, 1) else 0
+                    scorer = d.get('Scorer')
+                    if not isinstance(scorer, dict):
+                        scorer = {}
+                    team = scorer.get('TeamNum')
+                    self.goal_team = 1 if team == 1 else 0
+                    speed = d.get('GoalSpeed')
+                    speed_kmh = (round(speed * 0.036) if type(speed) in (int, float)
+                                 and math.isfinite(speed) and speed >= 0 else None)
+                    self.last_goal = {'name': scorer.get('Name') or '', 'team': team,
+                                      'speed_kmh': speed_kmh}
+                    if self.config['show_events']:
+                        self.goal_sequence += 1
+                        self.goal_until = time.monotonic() + 3
             elif event == 'MatchEnded':
                 self.match_closed = True
                 winner, guid = d.get('WinnerTeamNum'), d.get('MatchGuid')
@@ -312,6 +326,7 @@ class Store:
                         if not series_state(self.config)['complete']:
                             self.config['teams'][winner]['wins'] += 1
             elif event == 'MatchDestroyed':
+                self.last_goal = None
                 self.goal_until = 0
                 self.playlist_id = None
                 self.match_closed = True
@@ -392,10 +407,11 @@ class GameConnection:
                 stop.wait(2)
 
 
-def preview_snapshot(store):
+def preview_snapshot(store, replay=False):
     """Example data for preview only; never writes to the live match or connection."""
     snapshot = store.snapshot()
     snapshot['overlay_visible'] = True
+    snapshot['goal_replay'] = {'name': 'PIRU', 'team': 0, 'speed_kmh': 104} if replay else None
     snapshot['match'] = {
         'scores': [2, 1], 'time': 193, 'overtime': False, 'target': 'PIRU', 'banner': '',
         'players': [{'Name': name, 'TeamNum': i//3, 'Boost': boost,
@@ -414,7 +430,8 @@ def make_server(store, port=0):
         def do_GET(self):
             route = self.path.split('?')[0]
             if route in ('/state', '/preview-state'):
-                state = preview_snapshot(store) if route == '/preview-state' else store.snapshot()
+                replay_demo = 'replay=1' in self.path.partition('?')[2].split('&')
+                state = preview_snapshot(store, replay_demo) if route == '/preview-state' else store.snapshot()
                 data = json.dumps(state, ensure_ascii=False).encode('utf-8')
                 mime = 'application/json; charset=utf-8'
             elif route in ('/', '/overlay'):
@@ -458,7 +475,15 @@ def make_server(store, port=0):
                 self.wfile.write(data)
             except (ConnectionResetError, BrokenPipeError):
                 pass
-    return ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    class OverlayServer(ThreadingHTTPServer):
+        allow_reuse_address = False
+
+        def server_bind(self):
+            if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+
+    return OverlayServer(('127.0.0.1', port), Handler)
 
 
 class App:
@@ -516,7 +541,7 @@ class App:
         head = tk.Frame(root, bg='#12101a')
         head.pack(fill='x', padx=24, pady=(20, 12))
         tk.Label(head, text='PIRULETA - Overlay', fg='#fa54b7', bg='#12101a', font=('Segoe UI', 23, 'bold')).pack(side='left')
-        ttk.Button(head, text='Abrir vista previa', command=lambda: webbrowser.open(self.url+'?preview=1')).pack(side='right', padx=4)
+        ttk.Button(head, text='Abrir vista previa', command=self.open_preview).pack(side='right', padx=4)
         ttk.Button(head, text='Copiar URL para OBS', command=self.copy_url).pack(side='right', padx=4)
         body = ttk.Frame(root)
         body.pack(fill='both', expand=True, padx=24)
@@ -594,7 +619,7 @@ class App:
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
@@ -609,7 +634,7 @@ class App:
         curtain_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
         ttk.Button(curtain_row, text='Probar cortina', style='Control.TButton',
                    command=self.preview_goal).pack(side='left', padx=(5, 0))
-        ttk.Button(left, text='Aplicar diseño', style='Control.TButton', command=self.apply).pack(anchor='e')
+        ttk.Button(left, text='Aplicar cambios', style='Control.TButton', command=self.apply).pack(anchor='e')
         ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 10))
         ttk.Label(right, text='Formato de la serie', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         self.format_var = tk.StringVar(value=f"BO{self.store.config['bestof']}")
@@ -811,6 +836,10 @@ class App:
         with self.store.lock:
             self.store.config['teams'][i]['logo'] = ''
 
+    def open_preview(self):
+        if self.apply():
+            webbrowser.open(self.url + '?preview=1')
+
     def preview_goal(self):
         if self.apply():
             style = {'Bigness League': 'bigness', 'RCS': 'rcs', 'RCK': 'rck'}.get(self.store.config['goal_style'], 'original')
@@ -912,5 +941,37 @@ class App:
         self.root.destroy()
 
 
+def main():
+    if os.name != 'nt':
+        App(tk.Tk()).root.mainloop()
+        return
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    create_mutex = kernel.CreateMutexW
+    create_mutex.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
+    create_mutex.restype = wintypes.HANDLE
+    close_handle = kernel.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+
+    handle = create_mutex(None, False, r'Local\PiruletaOverlay')
+    already_running = ctypes.get_last_error() == 183  # ERROR_ALREADY_EXISTS
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if already_running:
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showinfo('Piruleta - Overlay', 'La aplicación ya está abierta. Usa esa ventana para aplicar los cambios.', parent=root)
+            root.destroy()
+            return
+        App(tk.Tk()).root.mainloop()
+    finally:
+        close_handle(handle)
+
+
 if __name__ == '__main__':
-    App(tk.Tk()).root.mainloop()
+    main()

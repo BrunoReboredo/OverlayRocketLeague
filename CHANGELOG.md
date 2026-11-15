@@ -1,5 +1,11 @@
 # Cambios
 
+## 1.2.1
+
+- Barra inferior durante la repetición de gol, tras la cortina. Muestra el color del equipo, el goleador y la velocidad del balón.
+- Casilla de la barra de repetición en Elementos para los estilos angular, redondeado y clásico.
+- Aplicar cambios actualiza la vista previa. La aplicación evita abrir dos instancias en Windows.
+
 ## 1.2.0
 
 - Barra superior RCK rediseñada, con paleta original, barras laterales al borde y ajustes de posición en turbo y estadísticas.

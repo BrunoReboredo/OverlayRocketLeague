@@ -1,7 +1,7 @@
 @echo off
 setlocal
-rem Version actual: textos libres y numero de partido automatico. Cierra la app anterior antes de abrir.
-title Piruleta - Overlay 1.2.0
+rem Abre la aplicacion Piruleta - Overlay de esta carpeta.
+title Piruleta - Overlay 1.2.1
 cd /d "%~dp0"
 if not exist "%~dp0app.py" (
   echo No se encuentra app.py en la carpeta de Piruleta - Overlay.
