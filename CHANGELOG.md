@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.8.2
+
+- Estadísticas e indicador de turbo desplazados 15 px hacia abajo.
+- Cámara de estadísticas pegada al panel y alineada con el inicio del borde superior de RCK.
+
 ## 1.2.2
 
 - Cámaras de estadísticas y turbos con enlaces de visualización OBS Ninja / VDO.Ninja asociados a cada jugador.

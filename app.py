@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '1.2.2'
+APP_VERSION = '0.8.2'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
