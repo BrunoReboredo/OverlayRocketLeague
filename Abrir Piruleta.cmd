@@ -1,7 +1,7 @@
 @echo off
 setlocal
 rem Abre la aplicacion Piruleta - Overlay de esta carpeta.
-title Piruleta - Overlay 0.8.2
+title Piruleta - Overlay 1.2.1
 cd /d "%~dp0"
 if not exist "%~dp0app.py" (
   echo No se encuentra app.py en la carpeta de Piruleta - Overlay.

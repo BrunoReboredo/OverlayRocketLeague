@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.2.1 · actualización de Cámaras
+
+- Nueva pestaña Cámaras para las opciones de cámara de estadísticas y cámaras de turbos.
+- Configuración de los enlaces integrada en la misma pestaña.
+- Activación opcional de cámaras de turbos durante 4,5 segundos al finalizar la replay del gol.
+- Conservación de enlaces y opciones al guardar y cargar perfiles.
+
+
 ## 0.8.2
 
 - Estadísticas e indicador de turbo desplazados 15 px hacia abajo.

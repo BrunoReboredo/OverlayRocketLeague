@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '0.8.2'
+APP_VERSION = '1.2.1'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -70,7 +70,7 @@ DEFAULT = {
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True,
     'show_boost': True, 'show_events': True, 'show_goal_replay': True,
-    'show_stats_camera': False, 'show_players_cameras': False, 'cameras': [],
+    'show_stats_camera': False, 'show_players_cameras': False, 'auto_replay_cameras': False, 'cameras': [],
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
     'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
@@ -137,7 +137,7 @@ def normalize_config(raw):
     if c['bestof'] not in SERIES_FORMATS:
         raise ValueError('Elige BO1, BO2, BO3, BO4, BO5 o BO7.')
     for key in c:
-        if key.startswith('show_') or key == 'auto_series':
+        if key.startswith('show_') or key in ('auto_series', 'auto_replay_cameras'):
             c[key] = bool(raw.get(key, c[key]))
     if raw.get('design') in ('angular', 'rounded', 'classic', 'RCK'):
         c['design'] = raw['design']
@@ -241,6 +241,7 @@ class Store:
         self.goal_armed = True
         self.in_goal_replay = False
         self.last_goal = None
+        self.auto_camera_until = 0
 
     def snapshot(self):
         with self.lock:
@@ -249,7 +250,10 @@ class Store:
             goal_remaining = max(0, int((self.goal_until-time.monotonic())*1000))
             replay = (self.last_goal if self.in_goal_replay and not self.history_replay
                       and self.config['show_goal_replay'] and self.config['design'] != 'RCK' else None)
-            return copy.deepcopy({'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
+            camera_remaining = (max(0, int((self.auto_camera_until-time.monotonic())*1000))
+                                if self.config['auto_replay_cameras'] and not self.match_closed
+                                and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS else 0)
+            return copy.deepcopy({'auto_camera_remaining': camera_remaining, 'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
                                                  'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
                                       and (not self.match_closed or replay is not None
@@ -305,6 +309,7 @@ class Store:
                 m['target'] = (g.get('Target') or {}).get('Name', '')
                 self.last_update = time.monotonic()
             elif event == 'MatchCreated':
+                self.auto_camera_until = 0
                 self.last_goal = None
                 self.goal_armed = True
                 self.in_goal_replay = False
@@ -314,6 +319,7 @@ class Store:
                 self.history_replay = False
                 m['players'], m['target'], m['banner'] = [], '', ''
             elif event == 'ReplayCreated':
+                self.auto_camera_until = 0
                 self.last_goal = None
                 self.history_replay = True
                 self.goal_until = 0
@@ -323,7 +329,15 @@ class Store:
             elif event == 'GoalReplayStart':
                 self.in_goal_replay = True
                 self.goal_armed = False
-            elif event in ('GoalReplayEnd', 'PodiumStart'):
+            elif event == 'GoalReplayEnd':
+                if (self.in_goal_replay and self.last_goal is not None
+                        and self.config['auto_replay_cameras'] and not self.match_closed
+                        and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS):
+                    self.auto_camera_until = time.monotonic() + 4.5
+                self.in_goal_replay = False
+                self.last_goal = None
+            elif event == 'PodiumStart':
+                self.auto_camera_until = 0
                 self.in_goal_replay = False
                 self.last_goal = None
             elif event == 'RoundStarted':
@@ -331,6 +345,7 @@ class Store:
                 self.goal_armed = True
                 self.last_goal = None
             elif event == 'GoalScored':
+                self.auto_camera_until = 0
                 if (self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay
                         and not self.match_closed and self.goal_armed and not self.in_goal_replay):
                     self.goal_armed = False
@@ -358,6 +373,7 @@ class Store:
                         if not series_state(self.config)['complete']:
                             self.config['teams'][winner]['wins'] += 1
             elif event == 'MatchDestroyed':
+                self.auto_camera_until = 0
                 self.last_goal = None
                 self.goal_until = 0
                 self.playlist_id = None
@@ -588,11 +604,12 @@ class App:
         left.pack(side='left', fill='both', expand=True)
         nb = ttk.Notebook(left)
         nb.pack(fill='both', expand=True, pady=(0, 14))
-        teams, design, backgrounds, visibility, layout, advanced = (ttk.Frame(nb, padding=20) for _ in range(6))
+        teams, design, backgrounds, visibility, cameras, layout, advanced = (ttk.Frame(nb, padding=20) for _ in range(7))
         nb.add(teams, text='Textos')
         nb.add(design, text='Diseño')
         nb.add(backgrounds, text='Fondos')
         nb.add(visibility, text='Elementos')
+        nb.add(cameras, text='Cámaras')
         nb.add(layout, text='Posiciones')
         nb.add(advanced, text='CSS libre')
         self.palette_labels = {'dark': 'Fondo principal', 'pink': 'Equipo A', 'coral': 'Color central',
@@ -656,12 +673,34 @@ class App:
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('show_stats_camera', 'Cámara estadísticas'), ('show_players_cameras', 'Cámaras turbos'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=2)
-        ttk.Button(visibility, text='Configurar cámaras…', command=self.configure_cameras).pack(anchor='w', pady=(3, 8))
+        for key, label in [('show_stats_camera', 'Cámara estadísticas'),
+                           ('show_players_cameras', 'Cámaras turbos'),
+                           ('auto_replay_cameras', 'Mostrar cámaras turbos durante 4,5 s al terminar la repetición')]:
+            variable = tk.BooleanVar(value=self.store.config[key])
+            self.vars[key] = variable
+            ttk.Checkbutton(cameras, text='  '+label, variable=variable, command=self.apply,
+                            style='Piruleta.TCheckbutton').pack(anchor='w', pady=5)
+        ttk.Separator(cameras).pack(fill='x', pady=12)
+        ttk.Label(cameras, text='Nombre del jugador en Rocket League y enlace de visualización OBS Ninja / VDO.Ninja.',
+                  wraplength=600).pack(anchor='w', pady=(0, 8))
+        camera_fields = ttk.Frame(cameras)
+        camera_fields.pack(fill='both', expand=True)
+        camera_fields.columnconfigure(1, weight=1)
+        ttk.Label(camera_fields, text='Jugador').grid(row=0, column=0, sticky='w')
+        ttk.Label(camera_fields, text='Enlace (?view=...)').grid(row=0, column=1, sticky='w')
+        self.camera_vars = []
+        for index in range(8):
+            camera = self.store.config['cameras'][index] if index < len(self.store.config['cameras']) else {}
+            name = tk.StringVar(value=camera.get('name', ''))
+            url = tk.StringVar(value=camera.get('url', ''))
+            ttk.Entry(camera_fields, textvariable=name, width=22).grid(row=index+1, column=0, sticky='ew', padx=(0, 10), pady=5)
+            ttk.Entry(camera_fields, textvariable=url, width=35).grid(row=index+1, column=1, sticky='ew', pady=5)
+            self.camera_vars.append((name, url))
         curtain_row = ttk.Frame(visibility)
         curtain_row.pack(fill='x', pady=3)
         ttk.Label(curtain_row, text='Diseño de cortina', width=19).pack(side='left')
@@ -780,6 +819,7 @@ class App:
                 for i in range(2):
                     raw['teams'][i]['name'] = self.team_vars[i]['name'].get()
                 raw['panels'] = {k: [v.get() for v in values] for k, values in self.panel_vars.items()}
+                raw['cameras'] = [{'name': name.get(), 'url': url.get()} for name, url in self.camera_vars]
                 raw['custom_css'] = self.css.get('1.0', 'end-1c')
                 palette_keys = {label: key for key, label in self.palette_labels.items()}
                 raw['panel_colors'] = {key: palette_keys[var.get()] for key, var in self.panel_color_vars.items()}
@@ -806,46 +846,13 @@ class App:
         for k, values in self.panel_vars.items():
             for j, v in enumerate(values):
                 v.set(c['panels'][k][j])
+        for index, (name, url) in enumerate(self.camera_vars):
+            camera = c['cameras'][index] if index < len(c['cameras']) else {}
+            name.set(camera.get('name', ''))
+            url.set(camera.get('url', ''))
         self.css.delete('1.0', 'end')
         self.css.insert('1.0', c['custom_css'])
         self.refresh_match_controls()
-
-    def configure_cameras(self):
-        dialog = tk.Toplevel(self.root)
-        dialog.title('Cámaras de jugadores · OBS Ninja')
-        dialog.transient(self.root)
-        frame = ttk.Frame(dialog, padding=20)
-        frame.pack(fill='both', expand=True)
-        ttk.Label(frame, text='Nombre exacto del jugador en Rocket League y enlace de visualización (?view=...).',
-                  wraplength=850).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 14))
-        ttk.Label(frame, text='Jugador').grid(row=1, column=0, sticky='w')
-        ttk.Label(frame, text='Enlace OBS Ninja / VDO.Ninja').grid(row=1, column=1, sticky='w')
-        rows = []
-        for index in range(8):
-            camera = self.store.config['cameras'][index] if index < len(self.store.config['cameras']) else {}
-            name = tk.StringVar(dialog, value=camera.get('name', ''))
-            url = tk.StringVar(dialog, value=camera.get('url', ''))
-            ttk.Entry(frame, textvariable=name, width=26).grid(row=index+2, column=0, sticky='ew', padx=(0, 12), pady=5)
-            ttk.Entry(frame, textvariable=url, width=60).grid(row=index+2, column=1, sticky='ew', pady=5)
-            rows.append((name, url))
-        frame.columnconfigure(1, weight=1)
-
-        def save_cameras():
-            try:
-                with self.store.lock:
-                    raw = copy.deepcopy(self.store.config)
-                    raw['cameras'] = [{'name': name.get(), 'url': url.get()} for name, url in rows]
-                    self.store.config = normalize_config(raw)
-            except (ValueError, TypeError) as exc:
-                messagebox.showerror('Revisa las cámaras', str(exc), parent=dialog)
-                return
-            dialog.destroy()
-
-        buttons = ttk.Frame(frame)
-        buttons.grid(row=10, column=0, columnspan=2, sticky='e', pady=(14, 0))
-        ttk.Button(buttons, text='Cancelar', command=dialog.destroy).pack(side='left', padx=5)
-        ttk.Button(buttons, text='Guardar cámaras', command=save_cameras).pack(side='left')
-        dialog.bind('<Escape>', lambda event: dialog.destroy())
 
     def color(self, key):
         dialog = tk.Toplevel(self.root, bg='#201b2c')

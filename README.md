@@ -1,4 +1,4 @@
-# Piruleta - Overlay 0.8.2
+# Piruleta - Overlay 1.2.1
 
 La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
@@ -94,7 +94,8 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 | **Textos** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
 | **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
-| **Elementos** | Escudos, jugadores, estadísticas, turbo, cortina de gol y conteo automático de victorias. |
+| **Elementos** | Escudos, jugadores, estadísticas, turbo, barra de repetición, cortina de gol y conteo automático de victorias. |
+| **Cámaras** | Cámaras de estadísticas y turbos, enlaces de hasta ocho jugadores y activación automática durante 4,5 segundos tras la replay. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
 
@@ -192,3 +193,9 @@ En Elementos → Diseño de cortina puedes elegir Original o Bigness League. La 
 Diseño → Estilo → RCK aplica un preset inspirado en la referencia: cabecera con torneo, fase y ronda; placas inclinadas; paleta lavanda, azul claro y azul marino; barras laterales compactas; estadísticas horizontales y turbo de doble aro. Al elegirlo se ajustan colores y posiciones, que puedes personalizar después. Los datos siguen sincronizados con el juego.
 
 Las cortinas disponibles son Torneo Piruleta (antes Original), Bigness League y RCS. RCS utiliza el logo incluido y los colores #c80516 y #f9cd36. Los perfiles que guardaban Original se actualizan automáticamente al nombre Torneo Piruleta.
+
+## Cámaras · versión 1.2.1
+
+En Cámaras puedes activar Cámara estadísticas y Cámaras turbos. Los campos de configuración están dentro de la pestaña: escribe el nombre del jugador tal como aparece en Rocket League y su enlace de visualización OBS Ninja / VDO.Ninja con ?view=... Las mayúsculas y minúsculas no afectan. Pulsa Aplicar cambios para guardar en el estado del overlay y Guarda el perfil para conservar la configuración en otro archivo.
+
+La opción automática muestra las cámaras de los turbos durante 4,5 segundos al terminar la repetición de un gol. Las cámaras activadas manualmente siguen mostrándose después de ese intervalo. Las cámaras se reciben sin audio. La vista previa usa los jugadores configurados y muestra marcos de ejemplo cuando falta un enlace.
