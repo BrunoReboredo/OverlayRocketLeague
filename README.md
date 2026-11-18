@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.2.1
+# Piruleta - Overlay 1.2.2
 
 La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 

@@ -11,11 +11,11 @@ import time
 import tkinter as tk
 from tkinter import ttk, colorchooser, filedialog, messagebox
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '1.2.1'
+APP_VERSION = '1.2.2'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -70,6 +70,7 @@ DEFAULT = {
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True,
     'show_boost': True, 'show_events': True, 'show_goal_replay': True,
+    'show_stats_camera': False, 'show_players_cameras': False, 'cameras': [],
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
     'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
@@ -106,6 +107,22 @@ def switch_design(raw, previous):
     return raw
 
 
+def normalize_camera_url(value):
+    value = value.strip()
+    if not value:
+        return ''
+    if len(value) > 4096:
+        raise ValueError('El enlace de cámara es demasiado largo.')
+    url = urlsplit(value)
+    parameters = dict(parse_qsl(url.query, keep_blank_values=True))
+    if (url.scheme != 'https' or url.hostname not in ('vdo.ninja', 'www.vdo.ninja', 'obs.ninja', 'www.obs.ninja')
+            or url.username or url.password or url.port not in (None, 443)
+            or not parameters.get('view') or 'push' in parameters or 'director' in parameters):
+        raise ValueError('Pega el enlace de visualización de VDO.Ninja / OBS Ninja, con https:// y ?view=...')
+    parameters.update(cleanoutput='', noaudio='', autostart='')
+    return url._replace(query=urlencode(parameters), fragment='').geturl()
+
+
 def normalize_config(raw):
     """Validate profiles before they reach widgets or the overlay."""
     if not isinstance(raw, dict):
@@ -135,6 +152,21 @@ def normalize_config(raw):
         if legacy in c['colors']:
             c['panel_colors'][panel+'0'] = legacy
             c['panel_colors'][panel+'1'] = legacy
+    camera_names = set()
+    cameras = raw.get('cameras', [])
+    if not isinstance(cameras, list) or len(cameras) > 8:
+        raise ValueError('Puedes configurar hasta ocho cámaras de jugadores.')
+    for camera in cameras:
+        if not isinstance(camera, dict):
+            raise ValueError('Revisa la configuración de cámaras.')
+        name = str(camera.get('name', '')).strip()[:120]
+        url = normalize_camera_url(str(camera.get('url', '')))
+        if not url:
+            continue
+        if not name or name.casefold() in camera_names:
+            raise ValueError('Cada cámara necesita un nombre de jugador diferente.')
+        camera_names.add(name.casefold())
+        c['cameras'].append({'name': name, 'url': url})
     c['custom_css'] = str(raw.get('custom_css', ''))[:50000]
     for key, value in raw.get('panel_colors', {}).items():
         if key in c['panel_colors'] and value in c['colors']:
@@ -419,6 +451,11 @@ def preview_snapshot(store, replay=False):
                      'Shots': 5, 'Assists': 1, 'Saves': 3}
                     for i, (name, boost) in enumerate([('PIRU', 72), ('CANDY', 38), ('FRESA', 100),
                                                       ('MANGO', 54), ('POP', 0), ('LIMÓN', 91)])]}
+    for player, camera in zip(snapshot['match']['players'], snapshot['config']['cameras']):
+        player['Name'] = camera['name']
+    snapshot['match']['target'] = snapshot['match']['players'][0]['Name']
+    if replay:
+        snapshot['goal_replay']['name'] = snapshot['match']['target']
     return snapshot
 
 
@@ -619,11 +656,12 @@ class App:
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('show_stats_camera', 'Cámara estadísticas'), ('show_players_cameras', 'Cámaras turbos'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=2)
+        ttk.Button(visibility, text='Configurar cámaras…', command=self.configure_cameras).pack(anchor='w', pady=(3, 8))
         curtain_row = ttk.Frame(visibility)
         curtain_row.pack(fill='x', pady=3)
         ttk.Label(curtain_row, text='Diseño de cortina', width=19).pack(side='left')
@@ -771,6 +809,43 @@ class App:
         self.css.delete('1.0', 'end')
         self.css.insert('1.0', c['custom_css'])
         self.refresh_match_controls()
+
+    def configure_cameras(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title('Cámaras de jugadores · OBS Ninja')
+        dialog.transient(self.root)
+        frame = ttk.Frame(dialog, padding=20)
+        frame.pack(fill='both', expand=True)
+        ttk.Label(frame, text='Nombre exacto del jugador en Rocket League y enlace de visualización (?view=...).',
+                  wraplength=850).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 14))
+        ttk.Label(frame, text='Jugador').grid(row=1, column=0, sticky='w')
+        ttk.Label(frame, text='Enlace OBS Ninja / VDO.Ninja').grid(row=1, column=1, sticky='w')
+        rows = []
+        for index in range(8):
+            camera = self.store.config['cameras'][index] if index < len(self.store.config['cameras']) else {}
+            name = tk.StringVar(dialog, value=camera.get('name', ''))
+            url = tk.StringVar(dialog, value=camera.get('url', ''))
+            ttk.Entry(frame, textvariable=name, width=26).grid(row=index+2, column=0, sticky='ew', padx=(0, 12), pady=5)
+            ttk.Entry(frame, textvariable=url, width=60).grid(row=index+2, column=1, sticky='ew', pady=5)
+            rows.append((name, url))
+        frame.columnconfigure(1, weight=1)
+
+        def save_cameras():
+            try:
+                with self.store.lock:
+                    raw = copy.deepcopy(self.store.config)
+                    raw['cameras'] = [{'name': name.get(), 'url': url.get()} for name, url in rows]
+                    self.store.config = normalize_config(raw)
+            except (ValueError, TypeError) as exc:
+                messagebox.showerror('Revisa las cámaras', str(exc), parent=dialog)
+                return
+            dialog.destroy()
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=10, column=0, columnspan=2, sticky='e', pady=(14, 0))
+        ttk.Button(buttons, text='Cancelar', command=dialog.destroy).pack(side='left', padx=5)
+        ttk.Button(buttons, text='Guardar cámaras', command=save_cameras).pack(side='left')
+        dialog.bind('<Escape>', lambda event: dialog.destroy())
 
     def color(self, key):
         dialog = tk.Toplevel(self.root, bg='#201b2c')

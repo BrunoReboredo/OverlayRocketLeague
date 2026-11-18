@@ -1,5 +1,15 @@
 # Cambios
 
+## 1.2.2
+
+- Cámaras de estadísticas y turbos con enlaces de visualización OBS Ninja / VDO.Ninja asociados a cada jugador.
+- Opciones independientes en Elementos y configuración de hasta ocho cámaras, guardada en perfiles.
+- Vista previa con cámaras configuradas o marcos de ejemplo.
+- Cámaras reducidas 5 px de ancho y alto.
+- Barra de repetición rectangular.
+- Estadísticas compactas en los tres estilos por defecto y ajustes de la barra de estadísticas de RCK.
+- Cajas de turbo 10 px más estrechas en angular, redondeado y clásico.
+
 ## 1.2.1
 
 - Barra inferior durante la repetición de gol, tras la cortina. Muestra el color del equipo, el goleador y la velocidad del balón.
