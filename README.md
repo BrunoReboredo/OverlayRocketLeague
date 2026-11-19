@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.2.1
+# Piruleta - Overlay 1.2.2
 
 La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
@@ -95,7 +95,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 | **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
 | **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
 | **Elementos** | Escudos, jugadores, estadísticas, turbo, barra de repetición, cortina de gol y conteo automático de victorias. |
-| **Cámaras** | Cámaras de estadísticas y turbos, enlaces de hasta ocho jugadores y activación automática durante 4,5 segundos tras la replay. |
+| **Cámaras** | Cámaras de estadísticas y turbos, enlaces de hasta ocho jugadores y activación automática durante 6,5 segundos tras la replay. |
 | **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
 | **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
 
@@ -194,8 +194,19 @@ Diseño → Estilo → RCK aplica un preset inspirado en la referencia: cabecera
 
 Las cortinas disponibles son Torneo Piruleta (antes Original), Bigness League y RCS. RCS utiliza el logo incluido y los colores #c80516 y #f9cd36. Los perfiles que guardaban Original se actualizan automáticamente al nombre Torneo Piruleta.
 
-## Cámaras · versión 1.2.1
+## Cámaras · versión 1.2.2
 
 En Cámaras puedes activar Cámara estadísticas y Cámaras turbos. Los campos de configuración están dentro de la pestaña: escribe el nombre del jugador tal como aparece en Rocket League y su enlace de visualización OBS Ninja / VDO.Ninja con ?view=... Las mayúsculas y minúsculas no afectan. Pulsa Aplicar cambios para guardar en el estado del overlay y Guarda el perfil para conservar la configuración en otro archivo.
 
-La opción automática muestra las cámaras de los turbos durante 4,5 segundos al terminar la repetición de un gol. Las cámaras activadas manualmente siguen mostrándose después de ese intervalo. Las cámaras se reciben sin audio. La vista previa usa los jugadores configurados y muestra marcos de ejemplo cuando falta un enlace.
+La opción automática muestra las cámaras de los turbos durante 6,5 segundos al terminar la repetición de un gol. Las cámaras activadas manualmente siguen mostrándose después de ese intervalo. Las cámaras se reciben sin audio. La vista previa usa los jugadores configurados y muestra marcos de ejemplo cuando falta un enlace.
+
+
+### Comportamiento de las cámaras en 1.2.2
+
+- Cámara estadísticas y Cámaras turbos son excluyentes: activar una desactiva la otra.
+- Durante la repetición se ocultan el marcador, los turbos, las estadísticas y las cámaras. Solo permanece la barra de repetición si está activada y el estilo la admite.
+- La opción automática muestra las cámaras de turbos durante 6,5 segundos después de la repetición. Durante ese intervalo oculta la cámara de estadísticas; al terminar recupera la opción manual elegida.
+- Con la opción automática, las cámaras se precargan para reducir la espera al mostrarlas.
+- Las imágenes de cámara llenan el marco en todos los estilos, recortando lo necesario para evitar bandas laterales.
+- La zona de cámara tiene fondo transparente. El nombre y el turbo conservan su fondo. En RCK la franja mantiene su inclinación y la cámara es rectangular; en los otros estilos la cámara ocupa el mismo ancho que la caja del turbo.
+- Abrir vista previa muestra los mismos ajustes y abre la revisión actual del diseño. Para actualizar una fuente de OBS que ya estaba abierta, utiliza Actualizar en sus propiedades.

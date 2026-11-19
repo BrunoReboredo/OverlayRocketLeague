@@ -159,9 +159,27 @@ body.details #focus{left:60px!important;top:135px!important;transform:none!impor
 .player.has-camera{height:auto!important;clip-path:none}
 .player .player-camera{margin-top:12px;width:calc(100% - 5px);aspect-ratio:auto}
 .rounded .player-camera{border-radius:10px}
-.RCK .player .player-camera{margin-top:18px}
+#stage:not(.RCK) .player.has-camera{position:relative;background:transparent;border-color:transparent;box-shadow:none;isolation:isolate}
+#stage:not(.RCK) .player.has-camera::before{content:'';position:absolute;top:0;left:-3px;right:0;height:var(--camera-header-height,55px);background:var(--players0-bg,var(--dark));border-left:3px solid var(--pink);z-index:-1}
+#stage:not(.RCK) .right .player.has-camera::before{left:0;right:-3px;background:var(--players1-bg,var(--dark));border-left:0;border-right:3px solid var(--yellow)}
+#stage:not(.RCK) .player-camera{background:transparent;box-shadow:none}
+
+.RCK .player .player-camera{margin-top:25px;margin-left:-25px}
+.RCK .roster.right .player .player-camera{margin-left:-35px}
+.RCK .roster .player.has-camera{background:transparent;isolation:isolate;clip-path:none}
+.RCK .roster .player.has-camera::before{content:'';position:absolute;left:0;right:0;top:0;height:45px;z-index:-1;background:var(--players0-bg,var(--dark));clip-path:polygon(0 0,95% 0,100% 100%,0 100%)}
+.RCK .roster.right .player.has-camera::before{background:var(--players1-bg,var(--dark));clip-path:polygon(5% 0,100% 0,100% 100%,0 100%)}
+.RCK .player-camera{background:transparent;box-shadow:none}
+.RCK #focuscamera{box-shadow:none}
+
 #focuscamera{position:absolute;width:295px;height:163.75px;aspect-ratio:auto;z-index:5;transform-origin:top left;box-shadow:0 4px 16px #0005}
 .goal-playing>#focuscamera,.replay-playing>#focuscamera{visibility:hidden}
+.temporary-camera-active>#focuscamera{visibility:hidden!important}
+
+
+.goal-replay-active>.scoreboard,.goal-replay-active>.roster,.goal-replay-active>.focus,.goal-replay-active>.boost,.goal-replay-active>#focuscamera,.goal-replay-active>.banner{visibility:hidden!important}
+.player{position:relative}
+.player .player-camera.preloading{position:absolute;left:0;top:0;margin:0;opacity:0;visibility:hidden;pointer-events:none}
 
 @keyframes goal-wash{0%,100%{opacity:0}14%,82%{opacity:.87}}
 @keyframes goal-sweep{0%{transform:translateX(-200%) skewX(-18deg)}18%,78%{transform:translateX(0) skewX(-18deg)}100%{transform:translateX(240%) skewX(-18deg)}}
@@ -211,7 +229,10 @@ function cameraUrl(player, config) {
  if (!player) return '';
  const name = String(player.Name || '').trim().toLocaleLowerCase();
  const camera = (config.cameras || []).find(item => item.name.trim().toLocaleLowerCase() === name);
- return camera?.url || '';
+ if (!camera?.url) return '';
+ const url = new URL(camera.url);
+ url.searchParams.set('cover', '');
+ return url.href;
 }
 function setCamera(container, url, name, placeholder = false) {
  let label = container.querySelector('.camera-preview');
@@ -242,24 +263,43 @@ function setCamera(container, url, name, placeholder = false) {
 }
 function renderCameras(state, observed) {
  const config = state.config, visible = state.overlay_visible === true;
+ const replayActive = state.goal_replay_active === true || Boolean(state.goal_replay);
+ const automatic = config.auto_replay_cameras && state.auto_camera_remaining > 0 && !replayActive;
+ stage.classList.toggle('goal-replay-active', Boolean(visible && replayActive));
+ stage.classList.toggle('temporary-camera-active', Boolean(visible && automatic));
  for (const player of state.match.players) {
   const card = playerCards.get(playerKey(player));
   if (!card) continue;
-  const automatic = config.auto_replay_cameras && state.auto_camera_remaining > 0;
   const enabled = visible && config.show_players && (config.show_players_cameras || automatic);
-  const url = enabled ? cameraUrl(player, config) : '';
+  const preload = visible && config.show_players && config.auto_replay_cameras;
+  const url = enabled || preload ? cameraUrl(player, config) : '';
   const placeholder = preview && enabled && !url;
+  const show = enabled && Boolean(url || placeholder);
   let camera = card.node.querySelector('.player-camera');
   if ((url || placeholder) && !camera) {
    camera = document.createElement('div');
    camera.className = 'player-camera';
    card.node.appendChild(camera);
   }
-  card.node.classList.toggle('has-camera', Boolean(url || placeholder));
+  card.node.classList.toggle('has-camera', Boolean(show));
   if (camera) {
    camera.style.setProperty('--camera-accent', config.colors[player.TeamNum === 1 ? 'yellow' : 'pink']);
    setCamera(camera, url, player.Name, placeholder);
-   if (url || placeholder) camera.style.height = ((camera.offsetWidth + 5) * 9 / 16 - 5) + 'px';
+   camera.classList.toggle('preloading', Boolean(url && !show));
+   if (url || placeholder) {
+    const style = getComputedStyle(card.node);
+    if (config.design === 'RCK') {
+     const width = card.node.clientWidth;
+     camera.style.width = width + 'px';
+     camera.style.height = (width * 9 / 16) + 'px';
+    } else {
+     const width = card.node.offsetWidth;
+     camera.style.marginLeft = -(parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth)) + 'px';
+     camera.style.width = width + 'px';
+     camera.style.height = (width * 9 / 16) + 'px';
+     card.node.style.setProperty('--camera-header-height', (camera.offsetTop - parseFloat(getComputedStyle(camera).marginTop) + parseFloat(style.paddingBottom)) + 'px');
+    }
+   }
   }
  }
  const camera = $('focuscamera');

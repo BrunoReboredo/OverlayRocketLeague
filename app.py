@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-APP_VERSION = '1.2.1'
+APP_VERSION = '1.2.2'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -139,6 +139,8 @@ def normalize_config(raw):
     for key in c:
         if key.startswith('show_') or key in ('auto_series', 'auto_replay_cameras'):
             c[key] = bool(raw.get(key, c[key]))
+    if c['show_stats_camera'] and c['show_players_cameras']:
+        c['show_players_cameras'] = False
     if raw.get('design') in ('angular', 'rounded', 'classic', 'RCK'):
         c['design'] = raw['design']
     if raw.get('goal_style') == 'Original':
@@ -253,7 +255,8 @@ class Store:
             camera_remaining = (max(0, int((self.auto_camera_until-time.monotonic())*1000))
                                 if self.config['auto_replay_cameras'] and not self.match_closed
                                 and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS else 0)
-            return copy.deepcopy({'auto_camera_remaining': camera_remaining, 'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
+            return copy.deepcopy({'goal_replay_active': self.in_goal_replay and not self.history_replay,
+                                  'auto_camera_remaining': camera_remaining, 'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
                                                  'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
                                       and (not self.match_closed or replay is not None
@@ -333,7 +336,7 @@ class Store:
                 if (self.in_goal_replay and self.last_goal is not None
                         and self.config['auto_replay_cameras'] and not self.match_closed
                         and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS):
-                    self.auto_camera_until = time.monotonic() + 4.5
+                    self.auto_camera_until = time.monotonic() + 6.5
                 self.in_goal_replay = False
                 self.last_goal = None
             elif event == 'PodiumStart':
@@ -459,6 +462,7 @@ def preview_snapshot(store, replay=False):
     """Example data for preview only; never writes to the live match or connection."""
     snapshot = store.snapshot()
     snapshot['overlay_visible'] = True
+    snapshot['goal_replay_active'] = replay
     snapshot['goal_replay'] = {'name': 'PIRU', 'team': 0, 'speed_kmh': 104} if replay else None
     snapshot['match'] = {
         'scores': [2, 1], 'time': 193, 'overtime': False, 'target': 'PIRU', 'banner': '',
@@ -680,10 +684,11 @@ class App:
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=2)
         for key, label in [('show_stats_camera', 'Cámara estadísticas'),
                            ('show_players_cameras', 'Cámaras turbos'),
-                           ('auto_replay_cameras', 'Mostrar cámaras turbos durante 4,5 s al terminar la repetición')]:
+                           ('auto_replay_cameras', 'Mostrar cámaras turbos durante 6,5 s al terminar la repetición')]:
             variable = tk.BooleanVar(value=self.store.config[key])
             self.vars[key] = variable
-            ttk.Checkbutton(cameras, text='  '+label, variable=variable, command=self.apply,
+            ttk.Checkbutton(cameras, text='  '+label, variable=variable,
+                            command=lambda key=key: self.change_camera_mode(key),
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=5)
         ttk.Separator(cameras).pack(fill='x', pady=12)
         ttk.Label(cameras, text='Nombre del jugador en Rocket League y enlace de visualización OBS Ninja / VDO.Ninja.',
@@ -810,6 +815,13 @@ class App:
         self.vars['font'].set(CUSTOM_FONT_PREFIX + target.name)
         self.apply()
 
+    def change_camera_mode(self, key):
+        other = {'show_stats_camera': 'show_players_cameras',
+                 'show_players_cameras': 'show_stats_camera'}.get(key)
+        if other and self.vars[key].get():
+            self.vars[other].set(False)
+        self.apply()
+
     def apply(self):
         try:
             with self.store.lock:
@@ -920,7 +932,8 @@ class App:
 
     def open_preview(self):
         if self.apply():
-            webbrowser.open(self.url + '?preview=1')
+            revision = (ROOT / 'overlay.html').stat().st_mtime_ns
+            webbrowser.open(self.url + '?preview=1&v=' + str(revision))
 
     def preview_goal(self):
         if self.apply():

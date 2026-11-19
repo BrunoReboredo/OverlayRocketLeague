@@ -1,5 +1,13 @@
 # Cambios
 
+## 1.2.2 · actualización de cámaras
+
+- Cámaras manuales excluyentes y cámaras temporales durante 6,5 segundos tras la replay.
+- Ocultación de gráficos durante las repeticiones y precarga de cámaras.
+- Cámara a todo ancho, sin bandas laterales y con fondo transparente, conservando la franja del nombre y turbo.
+- Cámaras RCK rectangulares y cabeceras inclinadas.
+- Vista previa actualizada y launcher de la versión 1.2.2.
+
 ## 1.2.1 · actualización de Cámaras
 
 - Nueva pestaña Cámaras para las opciones de cámara de estadísticas y cámaras de turbos.
