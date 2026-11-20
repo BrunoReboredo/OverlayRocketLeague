@@ -353,13 +353,13 @@ function render(s){stage.style.visibility=s.overlay_visible===true?'visible':'hi
   el.style.transform='scale('+(scale*boostFactor)+')';
   el.style.transformOrigin=rckRight?'top right':'top left';
  }
- const series=s.series||{slots:Math.floor(c.bestof/2)+1};
+ const series=s.series||{slots:c.bestof%2===0?c.bestof:Math.floor(c.bestof/2)+1};
 
  const game = series.game ?? Math.min(c.bestof, c.teams.reduce((wins, team) => wins + team.wins, 0) + 1);
  const topText = c.event.replaceAll('[GAME]', String(game)).replaceAll('[SERIE]', String(c.bestof)).replaceAll('[Serie]', String(c.bestof));
  $('event').textContent = topText;
  $('subtitle').textContent = c.round.replaceAll('[GAME]', String(game)).replaceAll('[SERIE]', String(c.bestof)).replaceAll('[Serie]', String(c.bestof));
- for(let t=0;t<2;t++){$('name'+t).textContent=c.teams[t].name;$('score'+t).textContent=m.scores[t];const logo=$('logo'+t),logoSrc=c.teams[t].logo||'/assets/torneo.png';if(logo.getAttribute('src')!==logoSrc)logo.src=logoSrc;logo.classList.toggle('hidden',!c.show_logos);const wingLogo=$('rcklogo'+t);if(wingLogo.getAttribute('src')!==logoSrc)wingLogo.src=logoSrc;wingLogo.classList.toggle('hidden',!c.show_logos);$('series'+t).innerHTML=Array.from({length:series.slots},(_,i)=>`<i class="pip ${i<c.teams[t].wins?'on':''}"></i>`).join('');
+ for(let t=0;t<2;t++){$('name'+t).textContent=c.teams[t].name;$('score'+t).textContent=m.scores[t];const logo=$('logo'+t),logoSrc=c.teams[t].logo||'/assets/torneo.png';if(logo.getAttribute('src')!==logoSrc)logo.src=logoSrc;logo.classList.toggle('hidden',!c.show_logos);const wingLogo=$('rcklogo'+t);if(wingLogo.getAttribute('src')!==logoSrc)wingLogo.src=logoSrc;wingLogo.classList.toggle('hidden',!c.show_logos);$('series'+t).innerHTML=Array.from({length:c.bestof%2===0?c.bestof:series.slots},(_,i)=>`<i class="pip ${i<c.teams[t].wins?'on':''}"></i>`).join('');
  reconcileRoster(t,m.players.filter(p=>p.TeamNum===t).sort((a,b)=>(a.Shortcut??0)-(b.Shortcut??0)),m.target,performance.now());$('players'+t).classList.toggle('hidden',!c.show_players)}
  const activeKeys=new Set(m.players.map(playerKey));for(const key of playerCards.keys()){if(!activeKeys.has(key)){playerCards.get(key).node.remove();playerCards.delete(key)}}boostTween.retain(activeKeys);
  const sec=Math.abs(Math.floor(m.time));$('clock').textContent=(m.overtime?'+':'')+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
@@ -372,6 +372,28 @@ function render(s){stage.style.visibility=s.overlay_visible===true?'visible':'hi
   $('focus').style.top=(boostBottom-$('focus').offsetHeight*fs)+'px';
  }
  renderCameras(s, p);
+ if(c.design!=='RCK'&&p&&c.show_boost&&c.panels?.boost){
+  const cameras=[...stage.querySelectorAll('.roster .player.has-camera .player-camera')].filter(el=>!el.classList.contains('hidden')&&!el.classList.contains('preloading')&&getComputedStyle(el).visibility!=='hidden');
+  if(cameras.length===6){
+   const boost=$('boost'),baseScale=c.panels.boost[2]/100*1.25;
+   const width=boost.offsetWidth*baseScale,height=boost.offsetHeight*baseScale;
+   const left=parseFloat(boost.style.left),top=parseFloat(boost.style.top);
+   const right=left+width,bottom=top+height;
+   const stageRect=stage.getBoundingClientRect(),stageScale=stageRect.width/stage.offsetWidth;
+   let factor=.75;
+   for(const camera of cameras){
+    const rect=camera.getBoundingClientRect();
+    const cameraLeft=(rect.left-stageRect.left)/stageScale,cameraRight=(rect.right-stageRect.left)/stageScale;
+    const cameraBottom=(rect.bottom-stageRect.top)/stageScale;
+    if(cameraRight>right-width*factor&&cameraLeft<right&&cameraBottom>bottom-height*factor&&cameraBottom<bottom){
+     factor=Math.min(factor,Math.max(.01,(bottom-cameraBottom-12)/height));
+    }
+   }
+   boost.style.transform='scale('+(baseScale*factor)+')';
+   boost.style.left=(right-width*factor)+'px';
+   boost.style.top=(bottom-height*factor)+'px';
+  }
+ }
  updateGoal(s,c);
  const replay = s.goal_replay;
  const showReplay = s.overlay_visible === true && c.show_goal_replay !== false && c.design !== 'RCK' && !details

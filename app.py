@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '1.2.2'
+APP_VERSION = '1.2.3'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -44,7 +44,7 @@ def series_state(config):
     tied = complete and wins[0] == wins[1]
     return {'target': target, 'complete': complete, 'tied': tied,
             'game': min(bestof, sum(wins) + (0 if complete else 1)),
-            'slots': target}
+            'slots': bestof if bestof % 2 == 0 else target}
 
 
 def swap_team_sides(config):
@@ -604,13 +604,11 @@ class App:
         body = ttk.Frame(root)
         body.pack(fill='both', expand=True, padx=24)
         left = ttk.Frame(body, padding=12)
-        right = ttk.Frame(body, padding=12, width=395)
-        right.pack(side='right', fill='y')
         left.pack(side='left', fill='both', expand=True)
         nb = ttk.Notebook(left)
         nb.pack(fill='both', expand=True, pady=(0, 14))
         teams, design, backgrounds, visibility, cameras, layout, advanced = (ttk.Frame(nb, padding=20) for _ in range(7))
-        nb.add(teams, text='Textos')
+        nb.add(teams, text='Ajustes')
         nb.add(design, text='Diseño')
         nb.add(backgrounds, text='Fondos')
         nb.add(visibility, text='Elementos')
@@ -647,30 +645,93 @@ class App:
             values = []
             for j, value in enumerate(self.store.config['panels'][key]):
                 var = tk.StringVar(value=str(value))
-                ttk.Spinbox(row, from_=25 if j == 2 else 0, to=200 if j == 2 else 1920, width=7, textvariable=var).pack(side='left', padx=5)
+                ttk.Spinbox(row, from_=25 if j == 2 else 0, to=200 if j == 2 else 1920, width=7, textvariable=var).pack(side='left', fill='x', expand=True, padx=5)
                 values.append(var)
             self.panel_vars[key] = values
         ttk.Label(advanced, text='Estilos propios para cualquier detalle del overlay (opcional).').pack(anchor='w')
         self.css = tk.Text(advanced, height=9, bg='#181426', fg='white', insertbackground='white', font=('Consolas', 12), wrap='word')
         self.css.pack(fill='both', expand=True, pady=8)
         self.css.insert('1.0', self.store.config['custom_css'])
-        self.entry(teams, 'Texto de arriba', 'event')
-        self.entry(teams, 'Texto de abajo', 'round')
-        for i in range(2):
-            row = ttk.Frame(teams)
-            row.pack(fill='x', pady=7)
-            ttk.Label(row, text=f'Equipo {i+1}', width=20).pack(side='left')
-            v = tk.StringVar(value=self.store.config['teams'][i]['name'])
-            self.team_vars[i]['name'] = v
-            ttk.Entry(row, textvariable=v).pack(side='left', fill='x', expand=True)
-            ttk.Button(row, text='Escudo…', command=lambda i=i: self.logo(i)).pack(side='left', padx=4)
-            ttk.Button(row, text='Quitar', command=lambda i=i: self.clear_logo(i)).pack(side='left')
-        ttk.Button(teams, text='Cambiar equipos de lado', style='Control.TButton',
-                   command=self.swap_teams).pack(anchor='e', pady=(6, 0))
+        ttk.Label(teams, text='Información del partido', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
+        match_info = ttk.Frame(teams)
+        match_info.pack(fill='x')
+        for column, weight in enumerate((1, 3, 4)):
+            match_info.columnconfigure(column, weight=weight, uniform='matchinfo' if column > 0 else '')
+        format_box = ttk.Frame(match_info)
+        format_box.grid(row=0, column=0, sticky='nsew', padx=(0, 8))
+        ttk.Label(format_box, text='Formato de la serie').pack(anchor='w', pady=(0, 5))
+        self.format_var = tk.StringVar(value=f"BO{self.store.config['bestof']}")
+        self.format_selector = ttk.Combobox(format_box, textvariable=self.format_var, state='readonly',
+                                          values=[f'BO{n}' for n in SERIES_FORMATS], width=7)
+        self.format_selector.pack(fill='x')
+        self.format_selector.bind('<<ComboboxSelected>>', self.change_format)
+        for column, key, title in [(1, 'round', 'Texto de abajo'), (2, 'event', 'Texto de arriba')]:
+            box = ttk.Frame(match_info)
+            box.grid(row=0, column=column, sticky='nsew', padx=(0, 8) if column == 1 else 0)
+            ttk.Label(box, text=title).pack(anchor='w', pady=(0, 5))
+            self.vars[key] = tk.StringVar(value=self.store.config[key])
+            field = ttk.Entry(box, textvariable=self.vars[key], width=15)
+            field.pack(fill='x', expand=True)
+            field.bind('<Return>', lambda event: self.apply())
+        ttk.Separator(teams).pack(fill='x', pady=10)
+        team_actions = ttk.Frame(teams)
+        team_actions.pack(fill='x')
+        for style_name, color in [('ResetSeries', '#1675bb'), ('SwapTeams', '#198f86'), ('ClearTeams', '#bc0060')]:
+            style.configure(style_name+'.TButton', background=color, foreground='white', padding=(12, 12))
+            style.map(style_name+'.TButton', background=[('active', color)])
+        for column, text, command, button_style in [
+                (0, 'Reiniciar serie', self.reset_series, 'ResetSeries.TButton'),
+                (1, 'Cambiar equipos de lado', self.swap_teams, 'SwapTeams.TButton'),
+                (2, 'Borrar nombres y escudos', self.clear_teams, 'ClearTeams.TButton')]:
+            team_actions.columnconfigure(column, weight=1, uniform='teamactions')
+            ttk.Button(team_actions, text=text, command=command, style=button_style).grid(
+                row=0, column=column, sticky='ew', padx=(0, 10) if column < 2 else 0)
+        team_columns = ttk.Frame(teams)
+        team_columns.pack(fill='both', expand=True, pady=(53, 0))
+        self.score_labels, self.win_labels, self.logo_labels = [], [], []
+        self.logo_images, self.logo_sources = {}, {}
+        for i, title in enumerate(('Equipo azul', 'Equipo naranja')):
+            team_columns.columnconfigure(i, weight=1, uniform='teams')
+            card = ttk.LabelFrame(team_columns, text=title.upper(), padding=20)
+            card.grid(row=0, column=i, sticky='nsew', padx=(0, 12) if i == 0 else (12, 0))
+            series_row = ttk.Frame(card)
+            series_row.pack(fill='x', pady=(0, 18))
+            score_box = ttk.Frame(series_row)
+            score_box.pack(side='left', fill='x', expand=True)
+            ttk.Label(score_box, text='Victorias de serie', foreground='#b6a4c3').pack(anchor='w')
+            controls = ttk.Frame(score_box)
+            controls.pack(anchor='w', pady=(4, 0))
+            label = ttk.Label(controls, text='Serie 0', font=('Segoe UI', 15, 'bold'), width=9)
+            label.pack(side='left')
+            self.win_labels.append(label)
+            ttk.Button(controls, text='−', width=3, style='Control.TButton', command=lambda i=i: self.win(i, -1)).pack(side='left', padx=(0, 4))
+            ttk.Button(controls, text='+', width=3, style='Control.TButton', command=lambda i=i: self.win(i, 1)).pack(side='left')
+            logo_label = ttk.Label(series_row, text='Sin escudo', anchor='center', width=12)
+            logo_label.pack(side='right', padx=(12, 0))
+            self.logo_labels.append(logo_label)
+            ttk.Label(card, text='Nombre del equipo').pack(anchor='w')
+            variable = tk.StringVar(value=self.store.config['teams'][i]['name'])
+            self.team_vars[i]['name'] = variable
+            ttk.Entry(card, textvariable=variable).pack(fill='x', pady=(7, 16))
+            logo_actions = ttk.Frame(card)
+            logo_actions.pack(fill='x')
+            ttk.Button(logo_actions, text='Subir escudo…', command=lambda i=i: self.logo(i)).pack(side='left', fill='x', expand=True, padx=(0, 8))
+            ttk.Button(logo_actions, text='Quitar escudo', command=lambda i=i: self.clear_logo(i)).pack(side='left')
+            goals = ttk.Frame(card)
+            goals.pack(fill='x', pady=(12, 0))
+            ttk.Label(goals, text='Goles del partido · API', foreground='#b6a4c3').pack(side='left')
+            label = ttk.Label(goals, text='0', font=('Segoe UI', 18, 'bold'))
+            label.pack(side='right')
+            self.score_labels.append(label)
+        self.series_hint = ttk.Label(teams, foreground='#ffce72', anchor='center')
+        self.series_hint.pack(fill='x', pady=(14, 4))
+        self.series_hint.bind('<Configure>', lambda event: self.series_hint.configure(wraplength=max(100, event.width)))
+        ttk.Label(teams, text='[GAME]: partido actual · [SERIE]: formato de la serie. Tiempo y goles sincronizados por la API.',
+                  foreground='#b6a4c3', anchor='center').pack(fill='x', pady=(0, 16))
         colorrow = ttk.Frame(design)
         colorrow.pack(fill='x', pady=5)
         for key, title in [('pink', 'Equipo A'), ('coral', 'Coral'), ('yellow', 'Equipo B'), ('dark', 'Fondo'), ('text', 'Texto')]:
-            ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).pack(side='left', padx=2)
+            ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).pack(side='left', fill='x', expand=True, padx=2)
         self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic', 'RCK'])
         self.font_selector = self.entry(design, 'Tipografía', 'font', choices=self.font_choices())
         ttk.Button(self.font_selector.master, text='Importar fuente…', command=self.import_font).pack(side='left', padx=(8, 0))
@@ -717,35 +778,11 @@ class App:
         curtain_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
         ttk.Button(curtain_row, text='Probar cortina', style='Control.TButton',
                    command=self.preview_goal).pack(side='left', padx=(5, 0))
-        ttk.Button(left, text='Aplicar cambios', style='Control.TButton', command=self.apply).pack(anchor='e')
-        ttk.Label(right, text='CONTROL DEL PARTIDO', font=('Segoe UI', 13, 'bold')).pack(anchor='w', pady=(0, 10))
-        ttk.Label(right, text='Formato de la serie', font=('Segoe UI', 10, 'bold')).pack(anchor='w')
-        self.format_var = tk.StringVar(value=f"BO{self.store.config['bestof']}")
-        self.format_selector = ttk.Combobox(right, textvariable=self.format_var, state='readonly',
-                                            values=[f'BO{n}' for n in SERIES_FORMATS])
-        self.format_selector.pack(fill='x', pady=(6, 4))
-        self.format_selector.bind('<<ComboboxSelected>>', self.change_format)
-        self.series_hint = ttk.Label(right, wraplength=340, foreground='#ffce72')
-        self.series_hint.pack(anchor='w', pady=(0, 10))
-        self.score_labels, self.win_labels = [], []
-        for i in range(2):
-            ttk.Label(right, text=f'EQUIPO {i+1} · GOLES / SERIE').pack(anchor='w', pady=(12, 4))
-            row = ttk.Frame(right)
-            row.pack(fill='x')
-            label = ttk.Label(row, text='0', font=('Segoe UI', 28, 'bold'), width=3, anchor='center')
-            label.pack(side='left', padx=8)
-            self.score_labels.append(label)
-            label = ttk.Label(row, text='Serie 0', width=7, anchor='center')
-            label.pack(side='left', padx=4)
-            self.win_labels.append(label)
-            ttk.Button(row, text='−', width=3, style='Control.TButton', command=lambda i=i: self.win(i, -1)).pack(side='left')
-            ttk.Button(row, text='+', width=3, style='Control.TButton', command=lambda i=i: self.win(i, 1)).pack(side='left')
-        ttk.Label(right, text='Tiempo y prórroga: sincronizados por la API.',
-                  wraplength=340, foreground='#b6a4c3').pack(anchor='w', pady=(14, 8))
-        ttk.Button(right, text='Reiniciar serie', style='Control.TButton', command=self.reset_series).pack(fill='x', pady=3)
-        ttk.Separator(right).pack(fill='x', pady=10)
-        ttk.Button(right, text='Guardar perfil…', style='Control.TButton', command=self.save).pack(fill='x', pady=3)
-        ttk.Button(right, text='Cargar perfil…', style='Control.TButton', command=self.load).pack(fill='x', pady=3)
+        actions = ttk.Frame(left)
+        actions.pack(side='bottom', fill='x', before=nb)
+        ttk.Button(actions, text='Aplicar cambios', style='Control.TButton', command=self.apply).pack(side='right')
+        ttk.Button(actions, text='Guardar perfil…', style='Control.TButton', command=self.save).pack(side='left', padx=(0, 8))
+        ttk.Button(actions, text='Cargar perfil…', style='Control.TButton', command=self.load).pack(side='left')
         footer = tk.Frame(root, bg='#12101a', padx=24, pady=8)
         footer.pack(side='bottom', fill='x', before=body)
         self.credits = tk.Label(footer, text=f'Versión {APP_VERSION}\nAplicación desarrollada por Bruno Reboredo Álvarez',
@@ -755,6 +792,13 @@ class App:
         self.status.pack(side='left', fill='both', expand=True)
         self.status.bind('<Configure>', lambda event: self.status.configure(wraplength=max(100, event.width)))
         self.root.protocol('WM_DELETE_WINDOW', self.close)
+        root.update_idletasks()
+        available_width = root.winfo_screenwidth() - 40
+        available_height = root.winfo_screenheight() - 80
+        width = min(1280, available_width)
+        height = min(max(940, root.winfo_reqheight()), available_height)
+        root.minsize(min(1050, width), min(900, height))
+        root.geometry(f'{width}x{height}')
         self.connect()
         self.refresh()
 
@@ -941,6 +985,14 @@ class App:
             style = {'Bigness League': 'bigness', 'RCS': 'rcs', 'RCK': 'rck'}.get(self.store.config['goal_style'], 'original')
             webbrowser.open(self.url+'?preview=1&goal=1&curtain='+style)
 
+    def clear_teams(self):
+        for team in self.team_vars:
+            team['name'].set('')
+        with self.store.lock:
+            for team in self.store.config['teams']:
+                team['logo'] = ''
+        self.apply()
+
     def swap_teams(self):
         if not self.apply():
             return
@@ -1014,6 +1066,18 @@ class App:
         snapshot = self.store.snapshot()
         c, m = snapshot['config'], snapshot['match']
         for i in range(2):
+            source = c['teams'][i]['logo']
+            if self.logo_sources.get(i) != source:
+                self.logo_sources[i] = source
+                self.logo_images.pop(i, None)
+                try:
+                    image = tk.PhotoImage(master=self.root, data=source.split(',', 1)[1]) if source else None
+                    if image:
+                        image = image.subsample(max(1, math.ceil(max(image.width(), image.height()) / 64)))
+                        self.logo_images[i] = image
+                    self.logo_labels[i].configure(image=image or '', text='' if image else 'Sin escudo', width=0 if image else 12)
+                except (tk.TclError, IndexError):
+                    self.logo_labels[i].configure(image='', text='Escudo cargado', width=14)
             self.score_labels[i].configure(text=str(m['scores'][i]))
             self.win_labels[i].configure(text=f"Serie {c['teams'][i]['wins']}")
         state = snapshot['series']

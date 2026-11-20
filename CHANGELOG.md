@@ -1,5 +1,16 @@
 # Cambios
 
+## 1.2.3
+
+- Barra inferior angular alineada con la inclinación de la parte principal.
+- Turbo inferior reducido solo con las seis cámaras visibles en angular, classic y rounded. La cámara de estadísticas mantiene su tamaño habitual; RCK no cambia.
+- Cuatro huecos de serie en BO4.
+- Nueva pestaña Ajustes con formato y textos arriba, tres acciones y dos bloques ampliados para Equipo azul y Equipo naranja.
+- Botón para borrar los nombres y escudos de ambos equipos.
+- Mayor separación entre acciones y equipos; indicaciones al pie de los equipos.
+- Pestañas a todo ancho, ventana inicial más alta y espacio reservado para los botones inferiores.
+- README y ejecutable actualizados.
+
 ## 1.2.2 · actualización de cámaras
 
 - Cámaras manuales excluyentes y cámaras temporales durante 6,5 segundos tras la replay.

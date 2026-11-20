@@ -1,6 +1,6 @@
-# Piruleta - Overlay 1.2.2
+# Piruleta - Overlay 1.2.3
 
-La versión 1.0 añade fondos por equipo para el jugador en cámara, marcador plano o degradado y marca con PNG personalizable. El estilo inicial es rounded y la tipografía Verdana. Los perfiles existentes conservan sus ajustes. Consulta el [historial de cambios](CHANGELOG.md).
+La versión **1.2.3** ajusta el marcador angular, reduce el turbo inferior solo al mostrar las seis cámaras de jugadores, corrige los cuatro huecos de BO4 y reorganiza la pestaña Ajustes. Consulta el [historial de cambios](CHANGELOG.md).
 
 Aplicación de escritorio para Windows que permite diseñar y controlar un marcador de Rocket League para retransmisiones. Incluye la identidad visual del Torneo Piruleta y una fuente transparente para OBS.
 
@@ -91,8 +91,8 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 
 | Pestaña | Opciones |
 | --- | --- |
-| **Textos** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
-| **Diseño** | Colores, estilo angular, redondeado o clásico, tipografía, escala, opacidad y posición del marcador superior. |
+| **Ajustes** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
+| **Diseño** | Colores, estilo angular, redondeado, clásico o RCK, tipografía, escala, opacidad y posición del marcador superior. |
 | **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
 | **Elementos** | Escudos, jugadores, estadísticas, turbo, barra de repetición, cortina de gol y conteo automático de victorias. |
 | **Cámaras** | Cámaras de estadísticas y turbos, enlaces de hasta ocho jugadores y activación automática durante 6,5 segundos tras la replay. |
@@ -101,7 +101,7 @@ La conexión está pensada para usar la aplicación, Rocket League y OBS en el m
 
 Pulsa **Aplicar diseño** después de editar campos de texto, números, posiciones o CSS. Los colores y las casillas se aplican al instante.
 
-Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de hasta 4 MB. En **Control del partido → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
+Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de hasta 4 MB. En **Ajustes → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
 
 El marcador parte del borde superior. El turbo del jugador observado tiene una escala inicial del 120 %. Los paneles laterales muestran el turbo de todos los jugadores, con nombre, valor numérico y barra; el equipo derecho aparece reflejado. El turbo cero se muestra como **0**. Los mensajes de gol y de su autor están desactivados; el resultado sigue actualizándose desde la API.
 
@@ -109,7 +109,7 @@ En **Fondos**, elige **Fondo principal**, **Equipo A**, **Color central**, **Equ
 
 El esquema dentro del panel resume el marcador. Para comprobar el resultado completo, usa la vista previa del navegador.
 
-**Cambiar equipos de lado**, en **Textos**, intercambia nombres, logos, colores y victorias de serie. También intercambia los fondos vinculados de las tarjetas de jugadores. Los goles y la información de los jugadores siguen correspondiendo a los lados azul y naranja que comunica el juego. Puedes usarlo después de que los equipos cambien de lado en Rocket League. Al pulsarlo dos veces se recupera la distribución original.
+**Cambiar equipos de lado**, en **Ajustes**, intercambia nombres, logos, colores y victorias de serie. También intercambia los fondos vinculados de las tarjetas de jugadores. Los goles y la información de los jugadores siguen correspondiendo a los lados azul y naranja que comunica el juego. Puedes usarlo después de que los equipos cambien de lado en Rocket League. Al pulsarlo dos veces se recupera la distribución original.
 
 Todos los indicadores de turbo interpolan su valor durante 200 ms: los números, barras y círculo cambian de forma progresiva. Al cambiar de jugador observado, el círculo toma el valor de ese jugador sin arrastrar el del anterior.
 
@@ -210,3 +210,19 @@ La opción automática muestra las cámaras de los turbos durante 6,5 segundos a
 - Las imágenes de cámara llenan el marco en todos los estilos, recortando lo necesario para evitar bandas laterales.
 - La zona de cámara tiene fondo transparente. El nombre y el turbo conservan su fondo. En RCK la franja mantiene su inclinación y la cámara es rectangular; en los otros estilos la cámara ocupa el mismo ancho que la caja del turbo.
 - Abrir vista previa muestra los mismos ajustes y abre la revisión actual del diseño. Para actualizar una fuente de OBS que ya estaba abierta, utiliza Actualizar en sus propiedades.
+
+
+### Pestaña Ajustes
+
+Ajustes sustituye a Textos y reúne los textos superior e inferior, Equipo azul, Equipo naranja y Control del partido. El panel lateral desaparece y las demás pestañas aprovechan todo el ancho disponible. Borrar nombres y escudos vacía ambos nombres y elimina sus escudos. Guardar perfil y Cargar perfil permanecen accesibles en la barra inferior, junto a Aplicar cambios.
+
+
+## Cambios de la versión 1.2.3
+
+- **Angular:** la barra inferior comienza donde termina la parte principal y continúa su misma inclinación.
+- **Turbo con cámaras:** en angular, classic y rounded, el turbo inferior se reduce únicamente al mostrar las seis cámaras de jugadores y recupera su tamaño al ocultarlas. La cámara de estadísticas mantiene el tamaño habitual del turbo. RCK conserva su comportamiento.
+- **BO4:** aparecen cuatro huecos de serie. El objetivo para ganar y el empate 2–2 siguen funcionando como antes.
+- **Ajustes:** sustituye a Textos. Arriba aparecen formato, texto de abajo y texto de arriba, sin marcos exteriores. Debajo están Reiniciar serie, Cambiar equipos de lado y Borrar nombres y escudos. Tras la separación aparecen los bloques ampliados de Equipo azul y Equipo naranja, con sus victorias de serie, nombre, escudo y goles recibidos de la API. Las indicaciones de serie y de comandos quedan debajo de los equipos.
+- **Espacio de trabajo:** el control del partido queda dentro de Ajustes; las demás pestañas usan todo el ancho. La ventana abre más alta y reserva espacio para Guardar perfil, Cargar perfil y Aplicar cambios.
+
+Reabre la aplicación desde el acceso directo o **Piruleta - Overlay.exe** tras actualizarla. Actualiza también la fuente de navegador de OBS para cargar los cambios visuales. La versión aparece en la ventana y en el pie de la aplicación.
