@@ -1,6 +1,6 @@
-# Piruleta - Overlay 1.2.3
+# Piruleta - Overlay 1.2.4
 
-La versión **1.2.3** ajusta el marcador angular, reduce el turbo inferior solo al mostrar las seis cámaras de jugadores, corrige los cuatro huecos de BO4 y reorganiza la pestaña Ajustes. Consulta el [historial de cambios](CHANGELOG.md).
+La versión **1.2.4** añade iconos de acciones del juego en las barras de jugadores, ajusta su altura y posición en los estilos clásicos y amplía el turbo inferior con las seis cámaras visibles. Consulta el [historial de cambios](CHANGELOG.md).
 
 Aplicación de escritorio para Windows que permite diseñar y controlar un marcador de Rocket League para retransmisiones. Incluye la identidad visual del Torneo Piruleta y una fuente transparente para OBS.
 
@@ -226,3 +226,19 @@ Ajustes sustituye a Textos y reúne los textos superior e inferior, Equipo azul,
 - **Espacio de trabajo:** el control del partido queda dentro de Ajustes; las demás pestañas usan todo el ancho. La ventana abre más alta y reserva espacio para Guardar perfil, Cargar perfil y Aplicar cambios.
 
 Reabre la aplicación desde el acceso directo o **Piruleta - Overlay.exe** tras actualizarla. Actualiza también la fuente de navegador de OBS para cargar los cambios visuales. La versión aparece en la ventana y en el pie de la aplicación.
+
+
+### Iconos de acciones
+
+En Elementos, Iconos de acciones activa los indicadores de gol, asistencia, parada, tiro y demolición junto al nombre en las barras de turbo de jugadores. Los iconos respetan los colores del panel y duran 4,5 segundos; una nueva acción del mismo jugador sustituye a la anterior. Se activan mediante los eventos de la API durante partidos privados y se limpian en las repeticiones y al cambiar de partido. La vista previa muestra ejemplos periódicos sin modificar los datos del juego. La opción se conserva en los perfiles.
+
+
+## Cambios de la versión 1.2.4
+
+- Iconos de gol, asistencia, parada, tiro y demolición conectados a la API, con animación y duración de 4,5 segundos.
+- Casilla Iconos de acciones en Elementos, conservada en perfiles, y ejemplos periódicos en la vista previa.
+- PNG originales del juego descargados de Rocket League Wiki, incluidos localmente con su referencia de origen.
+- Barras de jugadores de angular, classic y rounded: 20 px más arriba y 15 px menos altas respecto a 1.2.3. RCK se mantiene.
+- Turbo inferior algo más grande con las seis cámaras visibles, conservando el ajuste para evitar superposiciones.
+
+Los PNG se sirven desde la carpeta assets; no se necesita acceder a la wiki durante la emisión. Activa los iconos en Elementos → Iconos de acciones. Después de actualizar, reabre la app y actualiza la fuente de navegador en OBS.

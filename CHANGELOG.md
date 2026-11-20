@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.2.4
+
+- Iconos de gol, asistencia, parada, tiro y demolición conectados a la API, con animación y duración de 4,5 segundos.
+- Casilla Iconos de acciones en Elementos, conservada en perfiles, y ejemplos periódicos en la vista previa.
+- PNG originales del juego descargados de Rocket League Wiki, incluidos localmente con su referencia de origen.
+- Barras de jugadores de angular, classic y rounded: 20 px más arriba y 15 px menos altas respecto a 1.2.3. RCK se mantiene.
+- Turbo inferior algo más grande con las seis cámaras visibles, conservando el ajuste para evitar superposiciones.
+
+
 ## 1.2.3
 
 - Barra inferior angular alineada con la inclinación de la parte principal.

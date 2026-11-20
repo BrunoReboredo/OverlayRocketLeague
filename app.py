@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '1.2.3'
+APP_VERSION = '1.2.4'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -70,7 +70,7 @@ DEFAULT = {
     'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True,
-    'show_boost': True, 'show_events': True, 'show_goal_replay': True,
+    'show_boost': True, 'show_player_actions': True, 'show_events': True, 'show_goal_replay': True,
     'show_stats_camera': False, 'show_players_cameras': False, 'auto_replay_cameras': False, 'cameras': [],
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
@@ -245,18 +245,32 @@ class Store:
         self.in_goal_replay = False
         self.last_goal = None
         self.auto_camera_until = 0
+        self.player_actions = {}
+        self.action_sequence = 0
+
+    def record_action(self, player, kind):
+        if not isinstance(player, dict) or player.get("TeamNum") not in (0, 1) or not player.get("Name"):
+            return
+        self.action_sequence += 1
+        key = (player["TeamNum"], player.get("Shortcut"), player["Name"])
+        self.player_actions[key] = {"Name": player["Name"], "TeamNum": player["TeamNum"],
+                                    "Shortcut": player.get("Shortcut"), "kind": kind,
+                                    "id": self.action_sequence, "until": time.monotonic() + 4.5}
 
     def snapshot(self):
         with self.lock:
             if time.monotonic() > self.banner_until:
                 self.match['banner'] = ''
+            now = time.monotonic()
+            self.player_actions = {key: action for key, action in self.player_actions.items() if action['until'] > now}
+            actions = [dict(action, remaining=int((action['until']-now)*1000)) for action in self.player_actions.values()]
             goal_remaining = max(0, int((self.goal_until-time.monotonic())*1000))
             replay = (self.last_goal if self.in_goal_replay and not self.history_replay
                       and self.config['show_goal_replay'] and self.config['design'] != 'RCK' else None)
             camera_remaining = (max(0, int((self.auto_camera_until-time.monotonic())*1000))
                                 if self.config['auto_replay_cameras'] and not self.match_closed
                                 and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS else 0)
-            return copy.deepcopy({'goal_replay_active': self.in_goal_replay and not self.history_replay,
+            return copy.deepcopy({'player_actions': actions, 'goal_replay_active': self.in_goal_replay and not self.history_replay,
                                   'auto_camera_remaining': camera_remaining, 'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
                                                  'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
@@ -313,6 +327,7 @@ class Store:
                 m['target'] = (g.get('Target') or {}).get('Name', '')
                 self.last_update = time.monotonic()
             elif event == 'MatchCreated':
+                self.player_actions.clear()
                 self.auto_camera_until = 0
                 self.last_goal = None
                 self.goal_armed = True
@@ -323,6 +338,7 @@ class Store:
                 self.history_replay = False
                 m['players'], m['target'], m['banner'] = [], '', ''
             elif event == 'ReplayCreated':
+                self.player_actions.clear()
                 self.auto_camera_until = 0
                 self.last_goal = None
                 self.history_replay = True
@@ -331,6 +347,7 @@ class Store:
                 m['time'] = int(d.get('TimeSeconds', 0))
                 m['overtime'] = bool(d.get('bOvertime', False))
             elif event == 'GoalReplayStart':
+                self.player_actions.clear()
                 self.in_goal_replay = True
                 self.goal_armed = False
             elif event == 'GoalReplayEnd':
@@ -345,9 +362,18 @@ class Store:
                 self.in_goal_replay = False
                 self.last_goal = None
             elif event == 'RoundStarted':
+                self.player_actions.clear()
                 self.in_goal_replay = False
                 self.goal_armed = True
                 self.last_goal = None
+            elif event == 'StatfeedEvent':
+                if (self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay and not self.match_closed
+                        and not self.in_goal_replay and not d.get('bReplay') and self.config['show_player_actions']):
+                    kinds = {'goal': 'goal', 'assist': 'assist', 'save': 'save', 'epicsave': 'save',
+                             'shot': 'shot', 'shotongoal': 'shot', 'demolish': 'demo', 'demolition': 'demo'}
+                    kind = kinds.get(str(d.get('EventName', '')).replace('_', '').lower())
+                    if kind:
+                        self.record_action(d.get('MainTarget'), kind)
             elif event == 'GoalScored':
                 self.auto_camera_until = 0
                 if (self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay
@@ -356,6 +382,8 @@ class Store:
                     scorer = d.get('Scorer')
                     if not isinstance(scorer, dict):
                         scorer = {}
+                    if self.config['show_player_actions']:
+                        self.record_action(scorer, 'goal')
                     team = scorer.get('TeamNum')
                     self.goal_team = 1 if team == 1 else 0
                     speed = d.get('GoalSpeed')
@@ -377,6 +405,7 @@ class Store:
                         if not series_state(self.config)['complete']:
                             self.config['teams'][winner]['wins'] += 1
             elif event == 'MatchDestroyed':
+                self.player_actions.clear()
                 self.auto_camera_until = 0
                 self.last_goal = None
                 self.goal_until = 0
@@ -475,6 +504,11 @@ def preview_snapshot(store, replay=False):
     for player, camera in zip(snapshot['match']['players'], snapshot['config']['cameras']):
         player['Name'] = camera['name']
     snapshot['match']['target'] = snapshot['match']['players'][0]['Name']
+    sample_tick = int(time.monotonic() // 8)
+    sample_remaining = max(0, int((4.5 - time.monotonic() % 8) * 1000))
+    snapshot['player_actions'] = [dict(player, kind=kind, id=f'preview-{sample_tick}-{i}', remaining=sample_remaining)
+                                  for i, (player, kind) in enumerate(zip(snapshot['match']['players'],
+                                                                       ('goal', 'assist', 'save', 'shot', 'demo')))] if not replay else []
     if replay:
         snapshot['goal_replay']['name'] = snapshot['match']['target']
     return snapshot
@@ -518,7 +552,9 @@ def make_server(store, port=0):
             elif route == '/boost-animation.js':
                 data = (ROOT / 'boost-animation.js').read_bytes()
                 mime = 'application/javascript; charset=utf-8'
-            elif route in ('/assets/torneo.png', '/assets/discord.png', '/assets/bigness-league.png', '/assets/rcs.png', '/assets/rck.png'):
+            elif route in ('/assets/torneo.png', '/assets/discord.png', '/assets/bigness-league.png', '/assets/rcs.png', '/assets/rck.png',
+                           '/assets/action-goal.png', '/assets/action-assist.png', '/assets/action-save.png',
+                           '/assets/action-shot.png', '/assets/action-demo.png'):
                 data = (ROOT / route.lstrip('/')).read_bytes()
                 mime = 'image/png'
             else:
@@ -739,7 +775,7 @@ class App:
         self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
         self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
         self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_player_actions', 'Iconos de acciones'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,

@@ -1,4 +1,4 @@
-# Piruleta - Overlay 1.2.3
+# Piruleta - Overlay 1.2.4
 
 Aplicación de escritorio para Windows, con un marcador transparente para OBS.
 Basada en las funciones públicas de BARL y las referencias del torneo; es una aplicación independiente.
@@ -83,3 +83,8 @@ El estilo por defecto es rounded y la tipografía Verdana. Los perfiles existent
 ## Versión 1.2.3
 
 Incluye el ajuste angular, el turbo reducido solo con seis cámaras, cuatro huecos en BO4 y la nueva distribución de Ajustes. Consulta README.md para las instrucciones actualizadas.
+
+
+## Versión 1.2.4
+
+Iconos de acciones con PNG del juego y ajustes de los turbos. Activa Iconos de acciones en Elementos. Consulta README.md para todos los cambios.
