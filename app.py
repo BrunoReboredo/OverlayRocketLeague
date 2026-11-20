@@ -6,6 +6,7 @@ import os
 import re
 from pathlib import Path
 import socket
+import sys
 import threading
 import time
 import tkinter as tk
@@ -14,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 APP_VERSION = '1.2.2'
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))

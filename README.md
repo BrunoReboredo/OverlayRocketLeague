@@ -10,15 +10,15 @@ Es un proyecto independiente inspirado en las funciones públicas de BARL. No ne
 
 ## Requisitos
 
-- Windows y **Python 3.11 o posterior**, con Tkinter.
+- Windows. El ejecutable incluye lo necesario y no requiere instalar Python.
 - Rocket League para PC, instalado en el mismo ordenador, para los datos en directo.
 - OBS Studio para mostrar el marcador durante una emisión.
 
-No requiere instalar paquetes con `pip`. Todavía no hay instalador ni ejecutable independiente: la aplicación se ejecuta con Python.
+Abre **Piruleta - Overlay.exe** o el acceso directo. **Abrir Piruleta.cmd** inicia ese mismo ejecutable, sin abrir Python ni una consola de Python.
 
 ## Instalación
 
-1. Instala [Python para Windows](https://www.python.org/downloads/windows/). Asegúrate de incluir Tkinter y de que los comandos `python` y `pythonw` estén disponibles en el equipo.
+1. Para usar la aplicación, conserva **Piruleta - Overlay.exe**, `assets`, `overlay.html` y `boost-animation.js` en la misma carpeta. El ejecutable se genera localmente; descargar solo el código del repositorio no lo incluye.
 2. Descarga este repositorio desde **Code → Download ZIP** y descomprímelo, o clónalo:
 
    ```bash
@@ -28,7 +28,7 @@ No requiere instalar paquetes con `pip`. Todavía no hay instalador ni ejecutabl
 
 3. Abre **Abrir Piruleta.cmd** con doble clic.
 
-También puedes abrir una terminal en la carpeta del proyecto y ejecutar:
+Para desarrollar a partir del código fuente se necesita Python 3.11 o posterior con Tkinter:
 
 ```bash
 python app.py
