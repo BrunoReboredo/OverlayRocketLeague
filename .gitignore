@@ -5,3 +5,7 @@ ultimo_perfil.json
 
 # Local Windows shortcuts contain machine-specific absolute paths.
 *.lnk
+
+# Generated executable build files
+build/
+dist/

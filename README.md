@@ -1,6 +1,6 @@
-# Piruleta - Overlay 1.2.4
+# Piruleta - Overlay 1.2.5
 
-La versión **1.2.4** añade iconos de acciones del juego en las barras de jugadores, ajusta su altura y posición en los estilos clásicos y amplía el turbo inferior con las seis cámaras visibles. Consulta el [historial de cambios](CHANGELOG.md).
+La versión **1.2.5** corrige la velocidad de replay, permite mostrar tiro y gol juntos, mejora los avisos de demolición y repara la apertura de la vista previa. Consulta el [historial de cambios](CHANGELOG.md).
 
 Aplicación de escritorio para Windows que permite diseñar y controlar un marcador de Rocket League para retransmisiones. Incluye la identidad visual del Torneo Piruleta y una fuente transparente para OBS.
 
@@ -18,7 +18,7 @@ Abre **Piruleta - Overlay.exe** o el acceso directo. **Abrir Piruleta.cmd** inic
 
 ## Instalación
 
-1. Para usar la aplicación, conserva **Piruleta - Overlay.exe**, `assets`, `overlay.html` y `boost-animation.js` en la misma carpeta. El ejecutable se genera localmente; descargar solo el código del repositorio no lo incluye.
+1. Abre **Piruleta - Overlay.exe**. Desde 1.2.5 el ejecutable incluye el diseño, las fuentes y los iconos necesarios. El ejecutable se genera localmente; descargar solo el código del repositorio no lo incluye.
 2. Descarga este repositorio desde **Code → Download ZIP** y descomprímelo, o clónalo:
 
    ```bash
@@ -34,7 +34,7 @@ Para desarrollar a partir del código fuente se necesita Python 3.11 o posterior
 python app.py
 ```
 
-Conserva la carpeta `assets` y los archivos de la aplicación juntos. Mantén Piruleta - Overlay abierto mientras uses el marcador en OBS.
+Mantén Piruleta - Overlay abierto mientras uses el marcador en OBS. Si existen `overlay.html`, `boost-animation.js` o archivos de `assets` junto al ejecutable, la app usa esas versiones; si faltan, utiliza las integradas. Los perfiles y la configuración siguen guardándose por separado.
 
 ## Conectar con Rocket League
 
@@ -230,7 +230,7 @@ Reabre la aplicación desde el acceso directo o **Piruleta - Overlay.exe** tras 
 
 ### Iconos de acciones
 
-En Elementos, Iconos de acciones activa los indicadores de gol, asistencia, parada, tiro y demolición junto al nombre en las barras de turbo de jugadores. Los iconos respetan los colores del panel y duran 4,5 segundos; una nueva acción del mismo jugador sustituye a la anterior. Se activan mediante los eventos de la API durante partidos privados y se limpian en las repeticiones y al cambiar de partido. La vista previa muestra ejemplos periódicos sin modificar los datos del juego. La opción se conserva en los perfiles.
+En Elementos, Iconos de acciones activa los indicadores de gol, asistencia, parada, tiro y demolición junto al nombre en las barras de turbo de jugadores. Los iconos respetan los colores del panel y duran 4,5 segundos; las acciones diferentes del mismo jugador pueden aparecer juntas. Un tiro seguido de gol conserva los dos iconos durante la ventana del gol. Se activan mediante los eventos de la API durante partidos privados y se limpian en las repeticiones y al cambiar de partido. La vista previa muestra ejemplos periódicos sin modificar los datos del juego. La opción se conserva en los perfiles.
 
 
 ## Cambios de la versión 1.2.4
@@ -242,3 +242,29 @@ En Elementos, Iconos de acciones activa los indicadores de gol, asistencia, para
 - Turbo inferior algo más grande con las seis cámaras visibles, conservando el ajuste para evitar superposiciones.
 
 Los PNG se sirven desde la carpeta assets; no se necesita acceder a la wiki durante la emisión. Activa los iconos en Elementos → Iconos de acciones. Después de actualizar, reabre la app y actualiza la fuente de navegador en OBS.
+
+
+Los iconos de acciones aparecen al final de la barra, en el extremo opuesto al nombre, sustituyendo temporalmente al número de turbo. Al caducar vuelven los datos habituales. En una demolición, el atacante muestra el icono y la barra de la víctima muestra el nombre del atacante, el icono y el de la víctima, con el color del equipo atacante. La vista previa incluye tiro y gol simultáneos y una demolición.
+
+
+## Cambios de la versión 1.2.5
+
+- Corregida la velocidad de la barra de replay: se usa GoalSpeed directamente en km/h, sin aplicar otra conversión.
+- Iconos de acciones al final de la barra, en el extremo opuesto al nombre.
+- Tiro y gol se muestran juntos; los eventos repetidos no duplican un mismo icono.
+- Demoliciones: bomba en el atacante y aviso con atacante, bomba y víctima en la barra de quien recibe la demolición.
+- El aviso de demolición cubre toda la barra y sus bordes con el color del atacante.
+- Apertura de la vista previa corregida, con archivos integrados en el ejecutable y alternativa si Windows no abre el navegador.
+- Launcher, documentación y ejecutable actualizados a 1.2.5.
+
+La vista previa usa los mismos ajustes que OBS. Si no se puede abrir el navegador, la aplicación avisa y copia el enlace para pegarlo manualmente.
+
+### Generar el ejecutable desde el código
+
+Con Python y PyInstaller instalados, ejecuta desde la carpeta del proyecto:
+
+```powershell
+python -m PyInstaller --noconfirm Piruleta-Overlay.spec
+```
+
+El resultado queda en `dist/Piruleta - Overlay.exe`. El archivo de compilación incluye el diseño, las fuentes, los iconos y las cortinas de gol. Para usar el launcher, coloca el ejecutable a su lado.

@@ -1,5 +1,16 @@
 # Cambios
 
+## 1.2.5
+
+- Corregida la velocidad de la barra de replay: se usa GoalSpeed directamente en km/h, sin aplicar otra conversión.
+- Iconos de acciones al final de la barra, en el extremo opuesto al nombre.
+- Tiro y gol se muestran juntos; los eventos repetidos no duplican un mismo icono.
+- Demoliciones: bomba en el atacante y aviso con atacante, bomba y víctima en la barra de quien recibe la demolición.
+- El aviso de demolición cubre toda la barra y sus bordes con el color del atacante.
+- Apertura de la vista previa corregida, con archivos integrados en el ejecutable y alternativa si Windows no abre el navegador.
+- Launcher, documentación y ejecutable actualizados a 1.2.5.
+
+
 ## 1.2.4
 
 - Iconos de gol, asistencia, parada, tiro y demolición conectados a la API, con animación y duración de 4,5 segundos.

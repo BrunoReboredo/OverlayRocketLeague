@@ -16,7 +16,13 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '1.2.4'
+APP_VERSION = '1.2.5'
+RESOURCE_ROOT = Path(getattr(sys, '_MEIPASS', ROOT))
+
+def resource_path(relative):
+    external = ROOT / relative
+    return external if external.is_file() else RESOURCE_ROOT / relative
+
 # Private online, offline exhibition and local LAN lobby.
 PRIVATE_PLAYLISTS = frozenset((6, 8, 24))
 SERIES_FORMATS = (1, 2, 3, 4, 5, 7)
@@ -248,14 +254,24 @@ class Store:
         self.player_actions = {}
         self.action_sequence = 0
 
-    def record_action(self, player, kind):
-        if not isinstance(player, dict) or player.get("TeamNum") not in (0, 1) or not player.get("Name"):
+    def record_action(self, player, kind, attacker=None):
+        if not isinstance(player, dict) or player.get('TeamNum') not in (0, 1) or not player.get('Name'):
             return
+        now = time.monotonic()
+        until = now + 4.5
+        identity = (player['TeamNum'], player.get('Shortcut'), player['Name'])
+        # Keep different actions together; a shot followed by a goal shares the goal's display window.
+        if kind == 'goal':
+            shot = self.player_actions.get(identity + ('shot',))
+            if shot and shot['until'] > now:
+                shot['until'] = until
         self.action_sequence += 1
-        key = (player["TeamNum"], player.get("Shortcut"), player["Name"])
-        self.player_actions[key] = {"Name": player["Name"], "TeamNum": player["TeamNum"],
-                                    "Shortcut": player.get("Shortcut"), "kind": kind,
-                                    "id": self.action_sequence, "until": time.monotonic() + 4.5}
+        action = {'Name': player['Name'], 'TeamNum': player['TeamNum'],
+                  'Shortcut': player.get('Shortcut'), 'kind': kind,
+                  'id': self.action_sequence, 'until': until}
+        if attacker is not None:
+            action['attacker'] = {key: attacker.get(key) for key in ('Name', 'TeamNum', 'Shortcut')}
+        self.player_actions[identity + (kind,)] = action
 
     def snapshot(self):
         with self.lock:
@@ -374,6 +390,8 @@ class Store:
                     kind = kinds.get(str(d.get('EventName', '')).replace('_', '').lower())
                     if kind:
                         self.record_action(d.get('MainTarget'), kind)
+                        if kind == 'demo' and isinstance(d.get('MainTarget'), dict):
+                            self.record_action(d.get('SecondaryTarget'), 'demo-victim', attacker=d['MainTarget'])
             elif event == 'GoalScored':
                 self.auto_camera_until = 0
                 if (self.playlist_id in PRIVATE_PLAYLISTS and not self.history_replay
@@ -386,8 +404,10 @@ class Store:
                         self.record_action(scorer, 'goal')
                     team = scorer.get('TeamNum')
                     self.goal_team = 1 if team == 1 else 0
+                    # GoalScored sends the goal speed in km/h in live packets;
+                    # do not apply the uu/s conversion used by car/ball telemetry.
                     speed = d.get('GoalSpeed')
-                    speed_kmh = (round(speed * 0.036) if type(speed) in (int, float)
+                    speed_kmh = (round(speed) if type(speed) in (int, float)
                                  and math.isfinite(speed) and speed >= 0 else None)
                     self.last_goal = {'name': scorer.get('Name') or '', 'team': team,
                                       'speed_kmh': speed_kmh}
@@ -509,6 +529,11 @@ def preview_snapshot(store, replay=False):
     snapshot['player_actions'] = [dict(player, kind=kind, id=f'preview-{sample_tick}-{i}', remaining=sample_remaining)
                                   for i, (player, kind) in enumerate(zip(snapshot['match']['players'],
                                                                        ('goal', 'assist', 'save', 'shot', 'demo')))] if not replay else []
+    if not replay:
+        players = snapshot['match']['players']
+        snapshot['player_actions'].append(dict(players[0], kind='shot', id=f'preview-{sample_tick}-shot', remaining=sample_remaining))
+        snapshot['player_actions'].append(dict(players[2], kind='demo-victim', attacker=players[4],
+                                               id=f'preview-{sample_tick}-victim', remaining=sample_remaining))
     if replay:
         snapshot['goal_replay']['name'] = snapshot['match']['target']
     return snapshot
@@ -527,7 +552,7 @@ def make_server(store, port=0):
                 data = json.dumps(state, ensure_ascii=False).encode('utf-8')
                 mime = 'application/json; charset=utf-8'
             elif route in ('/', '/overlay'):
-                data = (ROOT / 'overlay.html').read_bytes()
+                data = resource_path('overlay.html').read_bytes()
                 mime = 'text/html; charset=utf-8'
             elif route.startswith('/fonts/'):
                 filename = unquote(route.removeprefix('/fonts/'))
@@ -547,15 +572,15 @@ def make_server(store, port=0):
                     self.send_error(404)
                     return
             elif route == '/assets/montserrat.ttf':
-                data = (ROOT / 'assets' / 'montserrat.ttf').read_bytes()
+                data = resource_path('assets/montserrat.ttf').read_bytes()
                 mime = 'font/ttf'
             elif route == '/boost-animation.js':
-                data = (ROOT / 'boost-animation.js').read_bytes()
+                data = resource_path('boost-animation.js').read_bytes()
                 mime = 'application/javascript; charset=utf-8'
             elif route in ('/assets/torneo.png', '/assets/discord.png', '/assets/bigness-league.png', '/assets/rcs.png', '/assets/rck.png',
                            '/assets/action-goal.png', '/assets/action-assist.png', '/assets/action-save.png',
                            '/assets/action-shot.png', '/assets/action-demo.png'):
-                data = (ROOT / route.lstrip('/')).read_bytes()
+                data = resource_path(route.lstrip('/')).read_bytes()
                 mime = 'image/png'
             else:
                 self.send_error(404)
@@ -1011,15 +1036,34 @@ class App:
         with self.store.lock:
             self.store.config['teams'][i]['logo'] = ''
 
+    def open_browser(self, url):
+        try:
+            if os.name == 'nt':
+                try:
+                    os.startfile(url)
+                    return True
+                except OSError:
+                    pass
+            if webbrowser.open(url, new=2):
+                return True
+        except (OSError, webbrowser.Error):
+            pass
+        self.root.clipboard_clear()
+        self.root.clipboard_append(url)
+        messagebox.showerror('No se pudo abrir el navegador',
+                             'He copiado el enlace de la vista previa. Pégalo en tu navegador para abrirlo.',
+                             parent=self.root)
+        return False
+
     def open_preview(self):
         if self.apply():
-            revision = (ROOT / 'overlay.html').stat().st_mtime_ns
-            webbrowser.open(self.url + '?preview=1&v=' + str(revision))
+            revision = time.time_ns()
+            self.open_browser(self.url + '?preview=1&v=' + str(revision))
 
     def preview_goal(self):
         if self.apply():
             style = {'Bigness League': 'bigness', 'RCS': 'rcs', 'RCK': 'rck'}.get(self.store.config['goal_style'], 'original')
-            webbrowser.open(self.url+'?preview=1&goal=1&curtain='+style)
+            self.open_browser(self.url+'?preview=1&goal=1&curtain='+style)
 
     def clear_teams(self):
         for team in self.team_vars:
