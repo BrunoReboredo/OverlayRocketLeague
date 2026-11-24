@@ -1,5 +1,22 @@
 # Cambios
 
+## 1.3
+
+- Nueva pestaña Publicidad con patrocinadores rotativos, de repetición y de prórroga, logos de hasta 4 MB y vistas previas.
+- Tres anuncios rotativos por defecto; botones para añadir hasta ocho y quitar siempre el último, con mínimo de dos.
+- Patrocinador rotativo del mismo ancho que las tarjetas de jugadores y posición adaptable a las cámaras.
+- Patrocinio de prórroga solo durante el countdown del kickoff, ocultando temporalmente el turbo inferior y las estadísticas.
+- Carteles ampliados: PATROCINADO POR en repetición; PRORROGA y patrocinada por en prórroga. Ambos conservan su fondo.
+- Barra de repetición con el color del equipo goleador y barra de prórroga con el fondo principal.
+- Estadísticas ancladas a la esquina inferior izquierda; turbo inferior completamente visible y con 12 px de margen al borde.
+- Turbos laterales pegados a los bordes y franjas de 5 px, iguales a la del rotativo.
+- Elementos pasa a la segunda pestaña, con General, Cámaras y Publicidad en columna y títulos en negrita.
+- Fondos integrado en Diseño, distribuido en dos mitades iguales con separador blanco. Colores en dos filas y apartado Estilos, tipografía y escala.
+- Eliminadas las pestañas CSS libre y Posiciones, y los controles de opacidad y posición del marcador.
+- Estilo de estadísticas Actual renombrado a Rectángulo; compatibilidad con perfiles anteriores.
+- Imagen PATROCÍNATE AQUÍ incluida en assets para usar como logo de ejemplo.
+
+
 ## 1.2.5
 
 - Corregida la velocidad de la barra de replay: se usa GoalSpeed directamente en km/h, sin aplicar otra conversión.

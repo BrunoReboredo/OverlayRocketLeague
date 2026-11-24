@@ -1,4 +1,6 @@
 """Piruleta - Overlay. Python 3.11+, standard library only."""
+import base64
+import binascii
 import copy
 import json
 import math
@@ -16,7 +18,7 @@ from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '1.2.5'
+APP_VERSION = '1.3'
 RESOURCE_ROOT = Path(getattr(sys, '_MEIPASS', ROOT))
 
 def resource_path(relative):
@@ -69,22 +71,32 @@ def swap_team_sides(config):
     return swapped
 
 
+ROTATION_SLOTS = ('rotation1', 'rotation2', 'rotation3')
+MIN_ROTATING_SPONSORS = 2
+MAX_ROTATING_SPONSORS = 8
+SPONSOR_SLOTS = (*ROTATION_SLOTS, 'overtime', 'replay')
+SPONSOR_IMAGE_TYPES = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
+
+
 DEFAULT = {
+    'sponsor_interval': 8, 'sponsor_rotation_count': 3,
+    'show_sponsor_rotation': True, 'show_sponsor_replay': True, 'show_sponsor_overtime': True,
+    'sponsors': {slot: {'name': '', 'logo': ''} for slot in SPONSOR_SLOTS},
     'event': 'TORNEO PIRULETA', 'round': 'GRAN FINAL · PARTIDO [GAME]', 'bestof': 5,
     'teams': [{'name': 'PINK CANDY', 'logo': '', 'wins': 0},
               {'name': 'GOLDEN POP', 'logo': '', 'wins': 0}],
     'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
                'dark': '#181426', 'text': '#ffffff'},
-    'show_logos': True, 'show_players': True, 'show_stats': True,
+    'show_logos': True, 'show_players': True, 'show_stats': True, 'stats_style': 'Rectángulo',
     'show_boost': True, 'show_player_actions': True, 'show_events': True, 'show_goal_replay': True,
     'show_stats_camera': False, 'show_players_cameras': False, 'auto_replay_cameras': False, 'cameras': [],
     'design': 'rounded', 'font': 'Verdana', 'scale': 100, 'opacity': 100,
     'x': 360, 'y': 0, 'auto_series': True, 'custom_css': '', 'api_port': 49123,
-    'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2,
+    'scoreboard_gradient': True, 'brand_logo': '', 'goal_style': 'Torneo Piruleta', 'design_presets': {}, 'rck_layout_revision': 2, 'layout_defaults_revision': 1,
     'panel_colors': {'boost0': 'pink', 'boost1': 'yellow', 'stats0': 'pink', 'stats1': 'yellow',
                      'players0': 'dark', 'players1': 'dark'},
-    'panels': {'players0': [24, 180, 100], 'players1': [1601, 180, 100],
-               'focus': [36, 880, 100], 'boost': [1695, 860, 120],
+    'panels': {'players0': [0, 180, 100], 'players1': [1635, 180, 100],
+               'focus': [0, 1030, 100], 'boost': [1695, 800, 120],
                'banner': [460, 370, 100]},
 }
 
@@ -107,8 +119,8 @@ def switch_design(raw, previous):
         if new_group == 'RCK':
             incoming['colors'].update(pink='#BEB4E6', yellow='#99C6DA', coral='#d9e0eb', dark='#04174A', text='#ffffff')
             incoming.update(x=500, y=0, scale=100)
-            incoming['panels'].update(players0=[24, 190, 100], players1=[1601, 190, 100],
-                                      focus=[36, 925, 100], boost=[1695, 860, 120])
+            incoming['panels'].update(players0=[0, 190, 100], players1=[1620, 190, 100],
+                                      focus=[0, 1030, 100], boost=[1695, 800, 120])
             incoming['panel_colors'].update(players0='dark', players1='dark', stats0='pink', stats1='yellow', boost0='dark', boost1='dark')
     raw.update(incoming)
     return raw
@@ -128,6 +140,9 @@ def normalize_camera_url(value):
         raise ValueError('Pega el enlace de visualización de VDO.Ninja / OBS Ninja, con https:// y ?view=...')
     parameters.update(cleanoutput='', noaudio='', autostart='')
     return url._replace(query=urlencode(parameters), fragment='').geturl()
+
+
+STATS_STYLES = ('Rectángulo', 'Barra compacta')
 
 
 def normalize_config(raw):
@@ -154,6 +169,31 @@ def normalize_config(raw):
         c['goal_style'] = 'Torneo Piruleta'
     if raw.get('goal_style') in ('Torneo Piruleta', 'Bigness League', 'RCS', 'RCK'):
         c['goal_style'] = raw['goal_style']
+    if raw.get('stats_style') in STATS_STYLES:
+        c['stats_style'] = raw['stats_style']
+    elif raw.get('stats_style') == 'Actual':
+        c['stats_style'] = 'Rectángulo'
+    c['sponsor_interval'] = max(3, min(60, int(raw.get('sponsor_interval', c['sponsor_interval']))))
+    sponsors = raw.get('sponsors')
+    occupied = [int(slot[8:]) for slot, value in sponsors.items()
+                if isinstance(slot, str) and re.fullmatch(r'rotation[1-9][0-9]*', slot)
+                and int(slot[8:]) <= MAX_ROTATING_SPONSORS and isinstance(value, dict)
+                and (value.get('name') or value.get('logo'))] if isinstance(sponsors, dict) else []
+    count = max(MIN_ROTATING_SPONSORS, min(MAX_ROTATING_SPONSORS, int(raw.get('sponsor_rotation_count', 3))), *occupied)
+    c['sponsor_rotation_count'] = count
+    c['sponsors'] = {slot: {'name': '', 'logo': ''}
+                     for slot in (*[f'rotation{i}' for i in range(1, count+1)], 'overtime', 'replay')}
+    if isinstance(sponsors, dict):
+        for slot in c['sponsors']:
+            sponsor = sponsors.get(slot)
+            if not isinstance(sponsor, dict):
+                continue
+            name = sponsor.get('name', '')
+            logo = sponsor.get('logo', '')
+            c['sponsors'][slot]['name'] = name.strip()[:60] if isinstance(name, str) else ''
+            if (isinstance(logo, str) and len(logo) <= MAX_LOGO_DATA_URL_CHARS
+                    and logo.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,'))):
+                c['sponsors'][slot]['logo'] = logo
     c['scoreboard_gradient'] = bool(raw.get('scoreboard_gradient', True))
     c['brand_logo'] = str(raw.get('brand_logo', ''))[:MAX_LOGO_DATA_URL_CHARS]
     for panel in ('boost', 'stats'):
@@ -203,6 +243,7 @@ def normalize_config(raw):
                 # Normalize cached layouts without recursively copying caches.
                 saved = normalize_config({'design': 'RCK' if group == 'RCK' else 'rounded',
                                           'rck_layout_revision': raw.get('rck_layout_revision', 1),
+                                          'layout_defaults_revision': raw.get('layout_defaults_revision', 0),
                                           **{key: presets[group][key] for key in DESIGN_FIELDS if key in presets[group]}})
                 c['design_presets'][group] = {key: copy.deepcopy(saved[key]) for key in DESIGN_FIELDS}
     # Early RCK releases overwrote the regular layout in existing profiles.
@@ -227,6 +268,27 @@ def normalize_config(raw):
                                   ('boost', [1590, 775, 140], [1695, 860, 120])]:
                 if layout['panels'][key] == old:
                     layout['panels'][key] = new
+    if raw.get('layout_defaults_revision', 0) != 1:
+        layouts = [c] + list(c['design_presets'].values())
+        for layout in layouts:
+            panels = layout['panels']
+            for key, old_values, new_value in [
+                    ('players0', ([24, 180, 100], [24, 190, 100]), None),
+                    ('players1', ([1601, 180, 100], [1601, 190, 100]), None),
+                    ('focus', ([36, 880, 100], [36, 925, 100]), [0, 1030, 100]),
+                    ('boost', ([1695, 860, 120],), [1695, 800, 120])]:
+                if panels[key] in old_values:
+                    if key == 'players0':
+                        panels[key] = [0, panels[key][1], panels[key][2]]
+                    elif key == 'players1':
+                        panels[key] = [1620 if layout.get('colors', {}).get('dark') == '#04174A' else 1635,
+                                       panels[key][1], panels[key][2]]
+                    else:
+                        panels[key] = list(new_value)
+    for layout in [c] + list(c['design_presets'].values()):
+        position = layout['panels']['focus']
+        if position[:2] == [1280, 1030]:
+            layout['panels']['focus'] = [0, 1030, position[2]]
     return c
 
 
@@ -249,6 +311,9 @@ class Store:
         self.goal_team = 0
         self.goal_armed = True
         self.in_goal_replay = False
+        self.overtime_started = False
+        self.countdown_started = None
+        self.overtime_until = 0
         self.last_goal = None
         self.auto_camera_until = 0
         self.player_actions = {}
@@ -273,6 +338,12 @@ class Store:
             action['attacker'] = {key: attacker.get(key) for key in ('Name', 'TeamNum', 'Shortcut')}
         self.player_actions[identity + (kind,)] = action
 
+    def update_overtime(self, overtime):
+        self.match['overtime'] = overtime
+        if overtime and not self.overtime_started and self.countdown_started is not None:
+            self.overtime_started = True
+            self.overtime_until = self.countdown_started + 3
+
     def snapshot(self):
         with self.lock:
             if time.monotonic() > self.banner_until:
@@ -286,11 +357,14 @@ class Store:
             camera_remaining = (max(0, int((self.auto_camera_until-time.monotonic())*1000))
                                 if self.config['auto_replay_cameras'] and not self.match_closed
                                 and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS else 0)
-            return copy.deepcopy({'player_actions': actions, 'goal_replay_active': self.in_goal_replay and not self.history_replay,
+            overtime_remaining = max(0, int((self.overtime_until - now) * 1000))
+            replay_sponsored = (self.in_goal_replay and
+                                any(self.config['sponsors']['replay'].values()))
+            return copy.deepcopy({'player_actions': actions, 'overtime_remaining': overtime_remaining, 'goal_replay_active': self.in_goal_replay and not self.history_replay,
                                   'auto_camera_remaining': camera_remaining, 'goal_replay': replay, 'goal_effect': {'id': self.goal_sequence, 'remaining': goal_remaining,
                                                  'team': self.goal_team}, 'config': self.config, 'match': self.match,
                                   'overlay_visible': (self.playlist_id in PRIVATE_PLAYLISTS
-                                      and (not self.match_closed or replay is not None
+                                      and (not self.match_closed or replay is not None or replay_sponsored
                                            or (goal_remaining > 0 and self.config['show_events']))
                                       and not self.history_replay
                                       and self.automatic and self.last_update > 0
@@ -327,7 +401,8 @@ class Store:
                     if i in (0, 1):
                         m['scores'][i] = max(0, int(t.get('Score', 0)))
                 m['time'] = int(g.get('TimeSeconds', m['time']))
-                m['overtime'] = bool(g.get('bOvertime', False))
+                if 'bOvertime' in g:
+                    self.update_overtime(bool(g['bOvertime']))
                 players = []
                 for player in d.get('Players', []):
                     if not isinstance(player, dict) or player.get('TeamNum') not in (0, 1):
@@ -343,6 +418,10 @@ class Store:
                 m['target'] = (g.get('Target') or {}).get('Name', '')
                 self.last_update = time.monotonic()
             elif event == 'MatchCreated':
+                self.overtime_started = False
+                self.countdown_started = None
+                self.overtime_until = 0
+                m['overtime'] = False
                 self.player_actions.clear()
                 self.auto_camera_until = 0
                 self.last_goal = None
@@ -361,8 +440,14 @@ class Store:
                 self.goal_until = 0
             elif event == 'ClockUpdatedSeconds':
                 m['time'] = int(d.get('TimeSeconds', 0))
-                m['overtime'] = bool(d.get('bOvertime', False))
+                if 'bOvertime' in d:
+                    self.update_overtime(bool(d['bOvertime']))
+            elif event == 'CountdownBegin':
+                self.countdown_started = time.monotonic()
+                self.update_overtime(m['overtime'])
             elif event == 'GoalReplayStart':
+                self.countdown_started = None
+                self.overtime_until = 0
                 self.player_actions.clear()
                 self.in_goal_replay = True
                 self.goal_armed = False
@@ -378,6 +463,8 @@ class Store:
                 self.in_goal_replay = False
                 self.last_goal = None
             elif event == 'RoundStarted':
+                self.countdown_started = None
+                self.overtime_until = 0
                 self.player_actions.clear()
                 self.in_goal_replay = False
                 self.goal_armed = True
@@ -425,6 +512,10 @@ class Store:
                         if not series_state(self.config)['complete']:
                             self.config['teams'][winner]['wins'] += 1
             elif event == 'MatchDestroyed':
+                self.overtime_started = False
+                self.countdown_started = None
+                self.overtime_until = 0
+                m['overtime'] = False
                 self.player_actions.clear()
                 self.auto_camera_until = 0
                 self.last_goal = None
@@ -508,14 +599,15 @@ class GameConnection:
                 stop.wait(2)
 
 
-def preview_snapshot(store, replay=False):
+def preview_snapshot(store, replay=False, overtime=False):
     """Example data for preview only; never writes to the live match or connection."""
     snapshot = store.snapshot()
     snapshot['overlay_visible'] = True
     snapshot['goal_replay_active'] = replay
+    snapshot['overtime_remaining'] = 3000 if overtime else 0
     snapshot['goal_replay'] = {'name': 'PIRU', 'team': 0, 'speed_kmh': 104} if replay else None
     snapshot['match'] = {
-        'scores': [2, 1], 'time': 193, 'overtime': False, 'target': 'PIRU', 'banner': '',
+        'scores': [2, 1], 'time': 0 if overtime else 193, 'overtime': overtime, 'target': 'PIRU', 'banner': '',
         'players': [{'Name': name, 'TeamNum': i//3, 'Boost': boost,
                      'Score': 541 if i == 0 else 125+i*32, 'Goals': 2 if i == 0 else i%2,
                      'Shots': 5, 'Assists': 1, 'Saves': 3}
@@ -547,10 +639,29 @@ def make_server(store, port=0):
         def do_GET(self):
             route = self.path.split('?')[0]
             if route in ('/state', '/preview-state'):
-                replay_demo = 'replay=1' in self.path.partition('?')[2].split('&')
-                state = preview_snapshot(store, replay_demo) if route == '/preview-state' else store.snapshot()
+                query = dict(parse_qsl(urlsplit(self.path).query))
+                state = (preview_snapshot(store, replay=query.get('replay') == '1',
+                                          overtime=query.get('overtime') == '1')
+                         if route == '/preview-state' else store.snapshot())
+                for slot, sponsor in state['config']['sponsors'].items():
+                    if sponsor['logo']:
+                        sponsor['logo'] = f"/sponsor/{slot}?v={hash(sponsor['logo'])}"
                 data = json.dumps(state, ensure_ascii=False).encode('utf-8')
                 mime = 'application/json; charset=utf-8'
+            elif route.startswith('/sponsor/'):
+                slot = route.removeprefix('/sponsor/')
+                with store.lock:
+                    logo = store.config['sponsors'].get(slot, {}).get('logo', '')
+                header, separator, content = logo.partition(',')
+                if not separator or header not in ('data:image/png;base64', 'data:image/jpeg;base64'):
+                    self.send_error(404)
+                    return
+                try:
+                    data = base64.b64decode(content, validate=True)
+                except (ValueError, binascii.Error):
+                    self.send_error(404)
+                    return
+                mime = header.removeprefix('data:').split(';', 1)[0]
             elif route in ('/', '/overlay'):
                 data = resource_path('overlay.html').read_bytes()
                 mime = 'text/html; charset=utf-8'
@@ -668,14 +779,37 @@ class App:
         left.pack(side='left', fill='both', expand=True)
         nb = ttk.Notebook(left)
         nb.pack(fill='both', expand=True, pady=(0, 14))
-        teams, design, backgrounds, visibility, cameras, layout, advanced = (ttk.Frame(nb, padding=20) for _ in range(7))
+        teams, visibility_page, design_page, cameras, advertising = (
+            ttk.Frame(nb, padding=20) for _ in range(5))
         nb.add(teams, text='Ajustes')
-        nb.add(design, text='Diseño')
-        nb.add(backgrounds, text='Fondos')
-        nb.add(visibility, text='Elementos')
+        nb.add(visibility_page, text='Elementos')
+        nb.add(design_page, text='Diseño')
         nb.add(cameras, text='Cámaras')
-        nb.add(layout, text='Posiciones')
-        nb.add(advanced, text='CSS libre')
+        nb.add(advertising, text='Publicidad')
+        self.build_advertising_tab(advertising)
+        design_page.columnconfigure(0, weight=1, uniform='design-halves')
+        design_page.columnconfigure(2, weight=1, uniform='design-halves')
+        design_page.rowconfigure(0, weight=1)
+        design = ttk.Frame(design_page)
+        design.grid(row=0, column=0, sticky='nsew', padx=(0, 18))
+        tk.Frame(design_page, bg='white', width=1).grid(row=0, column=1, sticky='ns')
+        backgrounds = ttk.Frame(design_page)
+        backgrounds.grid(row=0, column=2, sticky='nsew', padx=(18, 0))
+        ttk.Label(backgrounds, text='Fondos', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 10))
+        visibility = ttk.Frame(visibility_page)
+        visibility.pack(fill='x')
+        ttk.Label(visibility, text='General', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 10))
+        camera_options = ttk.Frame(visibility_page)
+        ttk.Label(camera_options, text='Cámaras', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 8))
+        advertising_options = ttk.Frame(visibility_page)
+        ttk.Label(advertising_options, text='Publicidad', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 8))
+        for key, title in [('show_sponsor_rotation', 'Publicidad rotativa'),
+                           ('show_sponsor_replay', 'Publicidad en repetición'),
+                           ('show_sponsor_overtime', 'Publicidad en prórroga')]:
+            variable = tk.BooleanVar(value=self.store.config[key])
+            self.vars[key] = variable
+            ttk.Checkbutton(advertising_options, text='  '+title, variable=variable,
+                            command=self.apply, style='Piruleta.TCheckbutton').pack(anchor='w', pady=3)
         self.palette_labels = {'dark': 'Fondo principal', 'pink': 'Equipo A', 'coral': 'Color central',
                                'yellow': 'Equipo B', 'text': 'Color del texto'}
         self.panel_color_vars = {}
@@ -697,22 +831,6 @@ class App:
                         style='Piruleta.TCheckbutton').pack(anchor='w', pady=6)
         ttk.Label(backgrounds, text='Al cambiar esos colores en Diseño, los fondos elegidos se actualizan también.',
                   wraplength=500, foreground='#b6a4c3').pack(anchor='w', pady=12)
-        self.panel_vars = {}
-        ttk.Label(layout, text='Panel                       X               Y          Escala %').pack(anchor='w')
-        for key, label in [('players0', 'Jugadores A'), ('players1', 'Jugadores B'), ('focus', 'Estadísticas'), ('boost', 'Turbo'), ('banner', 'Avisos')]:
-            row = ttk.Frame(layout)
-            row.pack(fill='x', pady=5)
-            ttk.Label(row, text=label, width=20).pack(side='left')
-            values = []
-            for j, value in enumerate(self.store.config['panels'][key]):
-                var = tk.StringVar(value=str(value))
-                ttk.Spinbox(row, from_=25 if j == 2 else 0, to=200 if j == 2 else 1920, width=7, textvariable=var).pack(side='left', fill='x', expand=True, padx=5)
-                values.append(var)
-            self.panel_vars[key] = values
-        ttk.Label(advanced, text='Estilos propios para cualquier detalle del overlay (opcional).').pack(anchor='w')
-        self.css = tk.Text(advanced, height=9, bg='#181426', fg='white', insertbackground='white', font=('Consolas', 12), wrap='word')
-        self.css.pack(fill='both', expand=True, pady=8)
-        self.css.insert('1.0', self.store.config['custom_css'])
         ttk.Label(teams, text='Información del partido', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
         match_info = ttk.Frame(teams)
         match_info.pack(fill='x')
@@ -789,18 +907,21 @@ class App:
         self.series_hint.bind('<Configure>', lambda event: self.series_hint.configure(wraplength=max(100, event.width)))
         ttk.Label(teams, text='[GAME]: partido actual · [SERIE]: formato de la serie. Tiempo y goles sincronizados por la API.',
                   foreground='#b6a4c3', anchor='center').pack(fill='x', pady=(0, 16))
+        ttk.Label(design, text='Colores', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 10))
         colorrow = ttk.Frame(design)
-        colorrow.pack(fill='x', pady=5)
-        for key, title in [('pink', 'Equipo A'), ('coral', 'Coral'), ('yellow', 'Equipo B'), ('dark', 'Fondo'), ('text', 'Texto')]:
-            ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).pack(side='left', fill='x', expand=True, padx=2)
+        colorrow.pack(fill='x', pady=(0, 10))
+        for column in range(3):
+            colorrow.columnconfigure(column, weight=1, uniform='palette-buttons')
+        for index, (key, title) in enumerate([('pink', 'Equipo azul'), ('coral', 'Coral'),
+                                             ('yellow', 'Equipo naranja'), ('dark', 'Fondo'), ('text', 'Texto')]):
+            ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).grid(
+                row=index//3, column=index%3, sticky='ew', padx=3, pady=4)
+        ttk.Label(design, text='Estilos, tipografía y escala', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(12, 10))
         self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic', 'RCK'])
         self.font_selector = self.entry(design, 'Tipografía', 'font', choices=self.font_choices())
         ttk.Button(self.font_selector.master, text='Importar fuente…', command=self.import_font).pack(side='left', padx=(8, 0))
         self.entry(design, 'Escala (%)', 'scale', numeric=(50, 150))
-        self.entry(design, 'Opacidad (%)', 'opacity', numeric=(10, 100))
-        self.entry(design, 'Posición horizontal', 'x', numeric=(0, 1900))
-        self.entry(design, 'Posición vertical', 'y', numeric=(0, 1000))
-        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_stats', 'Estadísticas del jugador en cámara'), ('show_boost', 'Turbo del jugador en cámara'), ('show_player_actions', 'Iconos de acciones'), ('show_events', 'Cortina de gol'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
+        for k, label in [('show_logos', 'Escudos de equipos'), ('show_players', 'Turbo de todos los jugadores'), ('show_boost', 'Turbo del jugador en cámara'), ('show_player_actions', 'Iconos de acciones'), ('show_goal_replay', 'Barra de repetición de gol'), ('auto_series', 'Sumar victorias automáticamente (API)')]:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
@@ -810,12 +931,11 @@ class App:
                            ('auto_replay_cameras', 'Mostrar cámaras turbos durante 6,5 s al terminar la repetición')]:
             variable = tk.BooleanVar(value=self.store.config[key])
             self.vars[key] = variable
-            ttk.Checkbutton(cameras, text='  '+label, variable=variable,
+            ttk.Checkbutton(camera_options, text='  '+label, variable=variable,
                             command=lambda key=key: self.change_camera_mode(key),
                             style='Piruleta.TCheckbutton').pack(anchor='w', pady=5)
-        ttk.Separator(cameras).pack(fill='x', pady=12)
         ttk.Label(cameras, text='Nombre del jugador en Rocket League y enlace de visualización OBS Ninja / VDO.Ninja.',
-                  wraplength=600).pack(anchor='w', pady=(0, 8))
+                  wraplength=600, font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 8))
         camera_fields = ttk.Frame(cameras)
         camera_fields.pack(fill='both', expand=True)
         camera_fields.columnconfigure(1, weight=1)
@@ -829,9 +949,22 @@ class App:
             ttk.Entry(camera_fields, textvariable=name, width=22).grid(row=index+1, column=0, sticky='ew', padx=(0, 10), pady=5)
             ttk.Entry(camera_fields, textvariable=url, width=35).grid(row=index+1, column=1, sticky='ew', pady=5)
             self.camera_vars.append((name, url))
+        stats_row = ttk.Frame(visibility)
+        stats_row.pack(fill='x', pady=3)
+        self.vars['show_stats'] = tk.BooleanVar(value=self.store.config['show_stats'])
+        ttk.Checkbutton(stats_row, text='  Mostrar estadísticas', variable=self.vars['show_stats'],
+                        command=self.apply, style='Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
+        self.vars['stats_style'] = tk.StringVar(value=self.store.config['stats_style'])
+        stats_selector = ttk.Combobox(stats_row, textvariable=self.vars['stats_style'],
+                                     values=STATS_STYLES, state='readonly', width=18)
+        stats_selector.pack(side='left', fill='x', expand=True)
+        stats_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
+
         curtain_row = ttk.Frame(visibility)
         curtain_row.pack(fill='x', pady=3)
-        ttk.Label(curtain_row, text='Diseño de cortina', width=19).pack(side='left')
+        self.vars['show_events'] = tk.BooleanVar(value=self.store.config['show_events'])
+        ttk.Checkbutton(curtain_row, text='  Cortina de gol', variable=self.vars['show_events'],
+                        command=self.apply, style='Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
         self.vars['goal_style'] = tk.StringVar(value=self.store.config['goal_style'])
         curtain_selector = ttk.Combobox(curtain_row, textvariable=self.vars['goal_style'],
                                        values=['Torneo Piruleta', 'Bigness League', 'RCS', 'RCK'], state='readonly', width=18)
@@ -839,6 +972,8 @@ class App:
         curtain_selector.bind('<<ComboboxSelected>>', lambda event: self.apply())
         ttk.Button(curtain_row, text='Probar cortina', style='Control.TButton',
                    command=self.preview_goal).pack(side='left', padx=(5, 0))
+        camera_options.pack(fill='x', pady=(18, 0))
+        advertising_options.pack(fill='x', pady=(18, 0))
         actions = ttk.Frame(left)
         actions.pack(side='bottom', fill='x', before=nb)
         ttk.Button(actions, text='Aplicar cambios', style='Control.TButton', command=self.apply).pack(side='right')
@@ -862,6 +997,115 @@ class App:
         root.geometry(f'{width}x{height}')
         self.connect()
         self.refresh()
+
+    def build_advertising_tab(self, parent):
+        canvas = tk.Canvas(parent, bg='#201b2c', highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(parent, orient='vertical', command=canvas.yview)
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        content = ttk.Frame(canvas)
+        window = canvas.create_window((0, 0), window=content, anchor='nw')
+        canvas.bind('<Configure>', lambda event: canvas.itemconfigure(window, width=event.width))
+        content.bind('<Configure>', lambda event: canvas.configure(scrollregion=canvas.bbox('all')))
+        self.advertising_canvas = canvas
+        ttk.Label(content, text='Patrocinadores rotativos', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(12, 8))
+        self.entry(content, 'Intervalo de rotación (s)', 'sponsor_interval', numeric=(3, 60))
+        self.rotation_fields = ttk.Frame(content)
+        self.rotation_fields.pack(fill='x')
+        sponsor_buttons = ttk.Frame(content)
+        sponsor_buttons.pack(fill='x', pady=(8, 18))
+        self.add_sponsor_button = ttk.Button(sponsor_buttons, text='+ Añadir patrocinador rotativo', command=self.add_rotating_sponsor)
+        self.add_sponsor_button.pack(side='left', padx=(0, 10))
+        self.remove_sponsor_button = ttk.Button(sponsor_buttons, text='− Quitar último patrocinador', command=self.remove_last_sponsor)
+        self.remove_sponsor_button.pack(side='left')
+        ttk.Label(content, text='Patrocinadores de jugadas', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 8))
+        self.event_sponsor_fields = ttk.Frame(content)
+        self.event_sponsor_fields.pack(fill='x')
+        self.rebuild_sponsor_rows(self.store.config)
+        ttk.Label(content, text='Escribe un nombre, añade un logo o combina ambos. Deja la fila vacía para ocultarla.',
+                  wraplength=650).pack(anchor='w', pady=(12, 8))
+        previews = ttk.Frame(content)
+        previews.pack(anchor='w')
+        ttk.Button(previews, text='Vista previa de prórroga',
+                   command=lambda: self.preview_sponsor('overtime')).pack(side='left', padx=(0, 8))
+        ttk.Button(previews, text='Vista previa de repetición',
+                   command=lambda: self.preview_sponsor('replay')).pack(side='left')
+        self.bind_advertising_scroll(parent)
+
+    def bind_advertising_scroll(self, widget):
+        widget.bind('<MouseWheel>', lambda event: self.advertising_canvas.yview_scroll(-int(event.delta / 120), 'units'))
+        for child in widget.winfo_children():
+            self.bind_advertising_scroll(child)
+
+    def build_sponsor_row(self, parent, slot, label, sponsor):
+        row = ttk.Frame(parent)
+        row.pack(fill='x', pady=2)
+        ttk.Label(row, text=label, width=12).pack(side='left')
+        name = tk.StringVar(value=sponsor.get('name', ''))
+        logo = tk.StringVar(value=sponsor.get('logo', ''))
+        status = tk.StringVar()
+        self.sponsor_vars[slot] = (name, logo)
+        ttk.Entry(row, textvariable=name, width=20).pack(side='left', fill='x', expand=True)
+        ttk.Button(row, textvariable=status, style='Control.TButton',
+                   command=lambda: self.choose_sponsor_logo(logo)).pack(side='left', padx=4)
+        ttk.Button(row, text='Quitar logo', style='Control.TButton', command=lambda: logo.set('')).pack(side='left')
+        def refresh_logo(*_):
+            status.set('Cambiar logo…' if logo.get() else 'Añadir logo…')
+        logo.trace_add('write', refresh_logo)
+        refresh_logo()
+        self.bind_advertising_scroll(row)
+
+    def rebuild_sponsor_rows(self, config):
+        for parent in (self.rotation_fields, self.event_sponsor_fields):
+            for child in parent.winfo_children():
+                child.destroy()
+        self.sponsor_vars = {}
+        self.rotation_count = config['sponsor_rotation_count']
+        for i in range(1, self.rotation_count+1):
+            slot = f'rotation{i}'
+            self.build_sponsor_row(self.rotation_fields, slot, f'Anuncio {i}', config['sponsors'][slot])
+        for slot, title in [('overtime', 'Prórroga'), ('replay', 'Repetición')]:
+            self.build_sponsor_row(self.event_sponsor_fields, slot, title, config['sponsors'][slot])
+        self.add_sponsor_button.configure(state='disabled' if self.rotation_count >= MAX_ROTATING_SPONSORS else 'normal')
+        self.remove_sponsor_button.configure(state='disabled' if self.rotation_count <= MIN_ROTATING_SPONSORS else 'normal')
+
+    def add_rotating_sponsor(self):
+        if self.rotation_count >= MAX_ROTATING_SPONSORS:
+            return
+        self.rotation_count += 1
+        self.build_sponsor_row(self.rotation_fields, f'rotation{self.rotation_count}', f'Anuncio {self.rotation_count}', {})
+        self.add_sponsor_button.configure(state='disabled' if self.rotation_count >= MAX_ROTATING_SPONSORS else 'normal')
+        self.remove_sponsor_button.configure(state='disabled' if self.rotation_count <= MIN_ROTATING_SPONSORS else 'normal')
+
+    def remove_last_sponsor(self):
+        if self.rotation_count <= MIN_ROTATING_SPONSORS:
+            return
+        self.sponsor_vars.pop(f'rotation{self.rotation_count}')
+        self.rotation_fields.winfo_children()[-1].destroy()
+        self.rotation_count -= 1
+        self.add_sponsor_button.configure(state='normal')
+        self.remove_sponsor_button.configure(state='disabled' if self.rotation_count <= MIN_ROTATING_SPONSORS else 'normal')
+
+    def choose_sponsor_logo(self, variable):
+        filename = filedialog.askopenfilename(filetypes=[('Imagen PNG / JPG', '*.png *.jpg *.jpeg')])
+        if not filename:
+            return
+        try:
+            path = Path(filename)
+            mime = SPONSOR_IMAGE_TYPES.get(path.suffix.lower())
+            with path.open('rb') as image:
+                data = image.read(MAX_LOGO_BYTES + 1)
+            signature = b'\x89PNG\r\n\x1a\n' if mime == 'image/png' else b'\xff\xd8\xff'
+            if not mime or not data.startswith(signature) or len(data) > MAX_LOGO_BYTES:
+                raise ValueError('Elige un archivo PNG o JPEG de 4 MB como máximo.')
+            variable.set(f'data:{mime};base64,' + base64.b64encode(data).decode('ascii'))
+        except (OSError, ValueError) as exc:
+            messagebox.showerror('No se pudo cargar el logo', str(exc), parent=self.root)
+
+    def preview_sponsor(self, event):
+        if self.apply():
+            self.open_browser(f'{self.url}?preview=1&{event}=1&v={time.time_ns()}')
 
     def entry(self, parent, title, key, numeric=None, choices=None):
         row = ttk.Frame(parent)
@@ -936,9 +1180,10 @@ class App:
                     raw[k] = v.get()
                 for i in range(2):
                     raw['teams'][i]['name'] = self.team_vars[i]['name'].get()
-                raw['panels'] = {k: [v.get() for v in values] for k, values in self.panel_vars.items()}
                 raw['cameras'] = [{'name': name.get(), 'url': url.get()} for name, url in self.camera_vars]
-                raw['custom_css'] = self.css.get('1.0', 'end-1c')
+                raw['sponsor_rotation_count'] = self.rotation_count
+                raw['sponsors'] = {slot: {'name': name.get(), 'logo': logo.get()}
+                                   for slot, (name, logo) in self.sponsor_vars.items()}
                 palette_keys = {label: key for key, label in self.palette_labels.items()}
                 raw['panel_colors'] = {key: palette_keys[var.get()] for key, var in self.panel_color_vars.items()}
                 changed_layout = (raw['design'] == 'RCK') != (self.store.config['design'] == 'RCK')
@@ -961,15 +1206,11 @@ class App:
             var.set(self.palette_labels[c['panel_colors'][key]])
         for i in range(2):
             self.team_vars[i]['name'].set(c['teams'][i]['name'])
-        for k, values in self.panel_vars.items():
-            for j, v in enumerate(values):
-                v.set(c['panels'][k][j])
         for index, (name, url) in enumerate(self.camera_vars):
             camera = c['cameras'][index] if index < len(c['cameras']) else {}
             name.set(camera.get('name', ''))
             url.set(camera.get('url', ''))
-        self.css.delete('1.0', 'end')
-        self.css.insert('1.0', c['custom_css'])
+        self.rebuild_sponsor_rows(c)
         self.refresh_match_controls()
 
     def color(self, key):

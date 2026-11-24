@@ -1,59 +1,19 @@
-# Piruleta - Overlay 1.2.5
+# PIRULETA - Overlay 1.3
 
-La versión **1.2.5** corrige la velocidad de replay, permite mostrar tiro y gol juntos, mejora los avisos de demolición y repara la apertura de la vista previa. Consulta el [historial de cambios](CHANGELOG.md).
+Aplicación de escritorio para Windows para personalizar un overlay de Rocket League y mostrarlo en OBS. Recibe tiempo, goles, jugadores, turbo, estadísticas y acciones desde la Stats API del juego. Se conecta y reconecta automáticamente.
 
-Aplicación de escritorio para Windows que permite diseñar y controlar un marcador de Rocket League para retransmisiones. Incluye la identidad visual del Torneo Piruleta y una fuente transparente para OBS.
+## Abrir e instalar
 
-El marcador recibe **goles, tiempo, prórroga, jugadores y estadísticas desde la Stats API oficial de Rocket League**. La aplicación intenta conectarse al abrir y vuelve a intentarlo si el juego está cerrado o se pierde la conexión.
+- Abre **Piruleta - Overlay.exe**, el acceso directo del escritorio o **Abrir Piruleta.cmd**. El launcher abre el ejecutable de su misma carpeta.
+- El ejecutable incluye el diseño, fuentes, logos e iconos necesarios. No requiere instalar Python.
+- Mantén la aplicación abierta durante la retransmisión.
+- Descargar o clonar el repositorio proporciona el código fuente; el ejecutable se genera aparte. Consulta Generar el ejecutable al final.
 
-Es un proyecto independiente inspirado en las funciones públicas de BARL. No necesita instalar BARL ni BakkesMod.
+Si junto al ejecutable existen `overlay.html`, `boost-animation.js` o archivos de `assets`, la app utiliza esas versiones. Si faltan, utiliza las integradas. El último perfil se guarda en `ultimo_perfil.json`, junto a la aplicación.
 
-## Requisitos
+## Conectar Rocket League
 
-- Windows. El ejecutable incluye lo necesario y no requiere instalar Python.
-- Rocket League para PC, instalado en el mismo ordenador, para los datos en directo.
-- OBS Studio para mostrar el marcador durante una emisión.
-
-Abre **Piruleta - Overlay.exe** o el acceso directo. **Abrir Piruleta.cmd** inicia ese mismo ejecutable, sin abrir Python ni una consola de Python.
-
-## Instalación
-
-1. Abre **Piruleta - Overlay.exe**. Desde 1.2.5 el ejecutable incluye el diseño, las fuentes y los iconos necesarios. El ejecutable se genera localmente; descargar solo el código del repositorio no lo incluye.
-2. Descarga este repositorio desde **Code → Download ZIP** y descomprímelo, o clónalo:
-
-   ```bash
-   git clone https://github.com/BrunoReboredo/OverlayRocketLeague.git
-   cd OverlayRocketLeague
-   ```
-
-3. Abre **Abrir Piruleta.cmd** con doble clic.
-
-Para desarrollar a partir del código fuente se necesita Python 3.11 o posterior con Tkinter:
-
-```bash
-python app.py
-```
-
-Mantén Piruleta - Overlay abierto mientras uses el marcador en OBS. Si existen `overlay.html`, `boost-animation.js` o archivos de `assets` junto al ejecutable, la app usa esas versiones; si faltan, utiliza las integradas. Los perfiles y la configuración siguen guardándose por separado.
-
-## Conectar con Rocket League
-
-### Activación inicial de la API
-
-La API debe estar habilitada en el juego para que envíe los datos del partido. Este paso se hace una vez por instalación, salvo que una actualización o reinstalación cambie su configuración.
-
-1. **Cierra Rocket League**.
-2. Dentro de su carpeta de instalación, entra en `TAGame/Config` y haz una copia de seguridad de `TAStatsAPI.ini` o, si no existe, de `DefaultStatsAPI.ini`.
-3. Configura los valores indicados a continuación y guarda el archivo.
-4. Inicia Rocket League y entra en un partido. Para disponer de los datos de turbo de los jugadores, usa el modo espectador.
-
-La aplicación se conectará automáticamente. Cuando reciba las actualizaciones del partido, su barra inferior mostrará **«En directo · tiempo y goles sincronizados con Rocket League»**.
-
-La versión 0.2 no tiene apartado de conexión ni modo manual. Utiliza el puerto 49123 por defecto. Si tu instalación usa otro, puedes establecer el campo `api_port` en un perfil JSON y cargarlo; el puerto se conserva al guardar el perfil.
-
-### Activación manual
-
-Con el juego cerrado, edita `TAGame/Config/TAStatsAPI.ini` o, si no existe, `DefaultStatsAPI.ini`. En la sección correspondiente, utiliza:
+Con Rocket League cerrado, abre `TAGame/Config/TAStatsAPI.ini` o `DefaultStatsAPI.ini` dentro de la instalación del juego. Guarda una copia antes de modificarlo y configura:
 
 ```ini
 [TAGame.MatchStatsExporter_TA]
@@ -62,209 +22,114 @@ Port=49123
 WebPort=49124
 ```
 
-Si la sección ya existe, actualiza sus valores. Los puertos TCP y WebSocket deben ser diferentes. Piruleta - Overlay utiliza la conexión **TCP**, normalmente en `127.0.0.1:49123`.
+Inicia el juego y entra como espectador en un partido privado para recibir todos los datos de jugadores. La app utiliza TCP local, normalmente `127.0.0.1:49123`. Los puertos TCP y WebSocket deben ser distintos. Si necesitas otro puerto TCP, puedes guardar `api_port` en un perfil JSON.
 
-Inicia o reinicia el juego tras cambiar el archivo. Piruleta - Overlay conecta y reconecta automáticamente.
+El overlay se muestra durante partidos privados online, locales o LAN; se oculta fuera de ellos y si deja de recibir datos. La vista previa utiliza datos ficticios y funciona sin tener un partido abierto.
 
-La configuración y la disponibilidad de los datos están descritas en la [documentación oficial de Stats API](https://www.rocketleague.com/developer/stats-api?lang=en).
+Referencia: [Stats API de Rocket League](https://www.rocketleague.com/developer/stats-api?lang=en).
 
-## Añadir el marcador a OBS
+## Mostrarlo en OBS
 
-1. Abre Piruleta - Overlay y pulsa **Copiar URL para OBS**.
-2. En la escena de OBS, añade una **Fuente de navegador**.
-3. Pega la URL y configura el tamaño en **1920 × 1080**.
-4. Coloca la fuente por encima de la captura de Rocket League.
+1. Abre la app y pulsa **Copiar URL para OBS**.
+2. Añade una **Fuente de navegador** sobre la captura del juego.
+3. Pega la URL y configura **1920 × 1080**.
+4. Mantén abierta la app. Tras actualizar el programa, actualiza también la fuente de navegador de OBS.
 
-La dirección habitual es:
+La URL habitual es `http://127.0.0.1:18765/overlay`. Si ese puerto está ocupado, la app elige otro: usa la URL que copia el botón. No añadas `?preview=1` a la fuente de emisión. El servidor solo escucha en el ordenador local.
 
-```text
-http://127.0.0.1:18765/overlay
-```
+## Pestañas
 
-El fondo es transparente. Si el puerto está ocupado, la aplicación utiliza otro y muestra la URL correcta en su barra inferior: usa siempre **Copiar URL para OBS**.
-
-**Abrir vista previa** muestra el diseño completo, incluidas las estadísticas y el turbo, con un fondo ilustrativo y datos de ejemplo. Esta vista no desconecta la API ni cambia el partido real. Para OBS, utiliza la URL sin `?preview=1`.
-
-La conexión está pensada para usar la aplicación, Rocket League y OBS en el mismo ordenador. El servidor del marcador solo escucha en la dirección local.
-
-## Personalizar el diseño
-
-| Pestaña | Opciones |
+| Pestaña | Contenido |
 | --- | --- |
-| **Ajustes** | Texto de arriba y Texto de abajo, nombres de equipos y escudos. Usa `[GAME]` en cualquiera de los dos textos para mostrar el número de partido de la serie y `[SERIE]` para mostrar el número del formato BO. |
-| **Diseño** | Colores, estilo angular, redondeado, clásico o RCK, tipografía, escala, opacidad y posición del marcador superior. |
-| **Fondos** | Fondos de turbo y estadísticas independientes para los equipos A y B: cambian automáticamente con el jugador en cámara. Fondos de jugadores vinculados a Diseño y opción de marcador degradado o plano. |
-| **Elementos** | Escudos, jugadores, estadísticas, turbo, barra de repetición, cortina de gol y conteo automático de victorias. |
-| **Cámaras** | Cámaras de estadísticas y turbos, enlaces de hasta ocho jugadores y activación automática durante 6,5 segundos tras la replay. |
-| **Posiciones** | Coordenadas y escala de los paneles de jugadores, estadísticas, turbo, marca y avisos. |
-| **CSS libre** | Estilos propios para ajustar detalles adicionales del overlay. Es opcional. |
+| **Ajustes** | Formato BO1, BO2, BO3, BO4, BO5 o BO7; textos; Equipo azul y Equipo naranja; nombres, escudos y victorias de serie. Reiniciar serie, cambiar lados y borrar nombres y escudos. |
+| **Elementos** | Secciones General, Cámaras y Publicidad. Checks para escudos, jugadores, estadísticas, turbo, acciones, replay, cortina, cámaras y cada tipo de publicidad. |
+| **Diseño** | Colores, estilos, tipografía y escala en la mitad izquierda; Fondos en la derecha. Colores en dos filas, importación de tipografías y fondos por equipo o degradado/plano. |
+| **Cámaras** | Nombres de jugadores y enlaces de visualización OBS Ninja / VDO.Ninja. Las casillas de activación están en Elementos. |
+| **Publicidad** | Intervalo, patrocinadores rotativos, patrocinadores de jugadas y botones para previsualizar repetición y prórroga. |
 
-Pulsa **Aplicar diseño** después de editar campos de texto, números, posiciones o CSS. Los colores y las casillas se aplican al instante.
+**Aplicar cambios** publica los campos editados. Las casillas, selectores y botones de color se aplican al usarlos. **Guardar perfil** y **Cargar perfil** permanecen en la barra inferior.
 
-Las posiciones usan un lienzo de 1920 × 1080: X aumenta hacia la derecha e Y hacia abajo. Los escudos admiten PNG y JPG de hasta 4 MB. En **Ajustes → Formato de la serie**, elige **BO1, BO2, BO3, BO4, BO5 o BO7**; el marcador adapta sus indicadores de victoria y su texto al instante.
+Las pestañas Posiciones y CSS libre se han eliminado. Los perfiles anteriores mantienen los ajustes guardados; las posiciones que coincidían con los valores antiguos por defecto se adaptan a la distribución actual.
 
-El marcador parte del borde superior. El turbo del jugador observado tiene una escala inicial del 120 %. Los paneles laterales muestran el turbo de todos los jugadores, con nombre, valor numérico y barra; el equipo derecho aparece reflejado. El turbo cero se muestra como **0**. Los mensajes de gol y de su autor están desactivados; el resultado sigue actualizándose desde la API.
+## Equipos, textos y series
 
-En **Fondos**, elige **Fondo principal**, **Equipo A**, **Color central**, **Equipo B** o **Color del texto** para cada panel. Al cambiar la paleta en **Diseño**, los fondos vinculados se actualizan también. El texto se adapta a los fondos claros para conservar la legibilidad. Estas opciones se guardan en los perfiles.
+- **Texto de arriba** y **Texto de abajo** admiten `[GAME]` para el partido actual de la serie y `[SERIE]` para el número del formato: BO5 devuelve 5.
+- Nombres y escudos se configuran manualmente. Las imágenes de equipos admiten PNG o JPEG de hasta 4 MB.
+- **Cambiar equipos de lado** intercambia nombres, logos, colores y victorias; tiempo, goles y jugadores siguen los lados azul/naranja que envía el juego.
+- **Borrar nombres y escudos** vacía esos datos de ambos equipos.
+- Las victorias de serie pueden ajustarse con +/− o sumarse por la API si se activa la opción de Elementos.
+- BO2 y BO4 admiten empate al agotar las partidas. BO4 muestra cuatro huecos; las series impares usan los huecos necesarios para alcanzar la victoria.
 
-El esquema dentro del panel resume el marcador. Para comprobar el resultado completo, usa la vista previa del navegador.
+## Diseño y estadísticas
 
-**Cambiar equipos de lado**, en **Ajustes**, intercambia nombres, logos, colores y victorias de serie. También intercambia los fondos vinculados de las tarjetas de jugadores. Los goles y la información de los jugadores siguen correspondiendo a los lados azul y naranja que comunica el juego. Puedes usarlo después de que los equipos cambien de lado en Rocket League. Al pulsarlo dos veces se recupera la distribución original.
+Hay cuatro estilos: angular, rounded, classic y RCK. El estilo inicial es rounded, con Verdana. Montserrat está incluida y puedes importar TTF, OTF, WOFF o WOFF2. Los colores admiten código hexadecimal.
 
-Todos los indicadores de turbo interpolan su valor durante 200 ms: los números, barras y círculo cambian de forma progresiva. Al cambiar de jugador observado, el círculo toma el valor de ese jugador sin arrastrar el del anterior.
+Fondos permite elegir colores de estadísticas, turbo y tarjetas de jugadores por equipo, además de fondo plano o degradado del marcador. Los ajustes de RCK y de los otros estilos se conservan por separado.
 
-## Funcionamiento durante un partido
+En Elementos, las estadísticas pueden mostrarse como **Rectángulo** o **Barra compacta**. Rectángulo sustituye al nombre anterior Actual. Por defecto se anclan a los bordes izquierdo e inferior. El turbo inferior queda completo y con 12 px de margen. No cambia la posición de las estadísticas al activar las cámaras.
 
-### Modo automático
+Las tarjetas de jugadores quedan pegadas a los bordes y sus franjas laterales tienen 5 px de grosor. El estilo angular continúa la inclinación del marcador en su barra inferior.
 
-Se activa al abrir la aplicación y permanece conectado mientras está abierta.
+## Cámaras
 
-- Los goles, el tiempo y la prórroga siguen los datos que envía Rocket League. No se hace avanzar un reloj independiente.
-- Los goles, el tiempo y la prórroga no tienen controles manuales: se reciben exclusivamente de la API.
-- Los paneles muestran los jugadores y el jugador en cámara cuando el juego facilita esos datos.
-- Si faltan datos recientes, el estado deja de indicar «En directo». El reloj conserva el último dato recibido hasta que lleguen nuevas actualizaciones.
-- Si se cierra el juego o se pierde la conexión, la aplicación vuelve a intentar conectarse.
+Escribe el nombre tal como aparece en Rocket League y un enlace HTTPS de visualización con `?view=...`. No uses enlaces de emisión `push` ni de director. Las mayúsculas del nombre no afectan a la coincidencia.
 
-Los nombres y escudos de los equipos son los que configures en Piruleta - Overlay. **Equipo 1 corresponde al lado azul del juego y Equipo 2 al naranja**. Ajusta la identidad de los equipos si cambian de lado.
+- **Cámara estadísticas** y **Cámaras turbos** son excluyentes.
+- La opción automática muestra las cámaras de turbos durante **6,5 segundos al terminar la replay**.
+- Si está activa la cámara de estadísticas, se oculta durante esos 6,5 segundos y después vuelve.
+- Las cámaras se precargan con la opción automática y se reciben sin audio.
+- La imagen llena su marco, recortando si hace falta para evitar bandas laterales.
+- El nombre y turbo conservan su fondo; la zona que rodea la cámara es transparente.
+- Con las seis cámaras visibles, el turbo inferior de angular, classic y rounded adapta su tamaño para evitar superposiciones.
 
-### Resultado de la serie
+Durante la repetición se ocultan el marcador, los turbos, las estadísticas y las cámaras. La vista previa muestra cámaras configuradas o marcos de ejemplo.
 
-Con **Sumar victorias automáticamente (API)** activado, el evento de final de partido suma una victoria al equipo ganador y actualiza el número de partido de la serie. El mismo identificador de partido solo cuenta una vez durante la sesión de la aplicación.
+## Goles, repeticiones y acciones
 
-La serie termina al conseguir la mayoría de victorias o alcanzar el máximo de partidas del formato. BO2 admite 1–1 y BO4 admite 2–2; el marcador muestra **EMPATE**. Los formatos impares requieren 1, 2, 3 o 4 victorias para BO1, BO3, BO5 y BO7, respectivamente. Los indicadores se adaptan al objetivo de cada formato. Una serie terminada no sigue sumando partidos automáticamente; reiníciala para comenzar otra.
+La **Cortina de gol** dura tres segundos, se activa una vez por gol y oculta temporalmente los gráficos. Están disponibles Torneo Piruleta, Bigness League, RCS y RCK.
 
-Los botones de serie permiten corregir las victorias incluso en modo automático. **Reiniciar serie** pone sus victorias a cero y el número de partido a uno; no reinicia el partido dentro del juego.
+La **Barra de repetición** muestra REPETICIÓN, goleador y velocidad en km/h durante la replay, después de la cortina. Esta barra no se muestra en RCK. La velocidad utiliza el dato del gol sin una conversión adicional.
 
-### Vista previa
+**Iconos de acciones** muestra gol, asistencia, parada, tiro y demolición durante 4,5 segundos. Los iconos aparecen en el extremo opuesto al nombre y sustituyen temporalmente al número de turbo. Tiro y gol pueden mostrarse juntos. En una demolición, el atacante muestra la bomba y la víctima muestra el aviso con ambos nombres. Los PNG originales están incluidos localmente; su procedencia se recoge en `assets/action-icons-source.txt`.
 
-**Abrir vista previa** permite comprobar todo el diseño con datos de ejemplo, incluidas la tarjeta de estadísticas, las barras de todos los jugadores y el indicador circular de turbo. La conexión automática sigue activa y OBS conserva los datos reales.
+## Publicidad
 
-## Guardar y recuperar perfiles
+En Elementos puedes activar por separado **Publicidad rotativa**, **Publicidad en repetición** y **Publicidad en prórroga**. Desactivar una no borra sus nombres ni logos.
 
-- **Guardar perfil…** exporta el diseño y el resultado de serie a un archivo JSON. Los escudos importados se incluyen en ese archivo.
-- **Cargar perfil…** recupera un perfil exportado.
-- Al cerrar la aplicación, el perfil actual se guarda en `ultimo_perfil.json` y se recupera al abrir.
+### Patrocinadores rotativos
 
-Los perfiles guardan el puerto de conexión, el diseño y el resultado de serie, pero no el estado completo del partido. `ultimo_perfil.json` se excluye de Git para mantener la configuración personal fuera del repositorio.
+Por defecto hay **3 anuncios**. El intervalo, situado debajo del título, admite de 3 a 60 segundos.
 
-## Solución de problemas
+- **Añadir patrocinador rotativo** añade una fila, hasta un máximo de **8**.
+- **Quitar último patrocinador** elimina siempre la última fila, hasta un mínimo de **2**.
+- Los botones se desactivan al alcanzar el límite correspondiente.
+- Cada fila admite nombre, logo o ambos. Dejarla vacía la excluye de la rotación.
+- El panel tiene el mismo ancho y escala que las tarjetas de jugadores. Su posición se adapta al aparecer las cámaras.
 
-| Problema | Qué comprobar |
-| --- | --- |
-| No se abre la ventana | Ejecuta `python app.py` desde una terminal para ver el error. Comprueba Python 3.11 o posterior y Tkinter con `python -m tkinter`. |
-| Aparece «Esperando Rocket League» | Comprueba que la API esté activada, el puerto coincida y el juego se haya reiniciado tras cambiar la configuración. |
-| Está conectado pero no recibe datos | Entra en un partido y comprueba que `PacketSendRate` sea mayor que cero. Los datos se emiten mientras hay un partido en curso. |
-| No aparecen las barras de turbo | Comprueba el modo espectador y que los paneles estén activados en **Elementos**. Algunos datos solo se emiten como espectador. |
-| No se puede guardar la configuración del juego | Comprueba los permisos de escritura del INI y conserva una copia antes de modificarlo. |
-| OBS no muestra el marcador | Mantén la aplicación abierta, copia de nuevo su URL y revisa que la fuente esté visible por encima de la captura. |
-| La fuente tiene un fondo ilustrativo | Quita `?preview=1` de la URL de OBS. |
-| No puedo editar el tiempo o los goles | Es intencionado: desde la versión 0.2 proceden exclusivamente del juego. |
+### Patrocinadores de jugadas
 
-## Estado del proyecto
+- **Repetición:** cartel con fondo, PATROCINADO POR y el logo, cerca de la barra inferior. Su franja usa el color del equipo goleador.
+- **Prórroga:** cartel con fondo, PRORROGA, subtítulo patrocinada por y logo. Su franja usa el color de Fondo principal. Solo aparece durante el countdown del kickoff de overtime; en ese momento se ocultan el turbo inferior, las estadísticas y su cámara, que vuelven después.
 
-La sincronización del reloj, los goles, las estadísticas y el turbo se ha comprobado con un partido real y en la vista previa de OBS.
+Los logos admiten PNG o JPEG de hasta 4 MB. Usa los botones de vista previa para comprobar ambos casos sin alterar el partido. En `assets/patrocinate-aqui.png` tienes un banner transparente de ejemplo para seleccionar como logo.
 
-Esta versión no incluye instalador independiente, editor con arrastre, escenas de prepartido ni importación de temas de BARL. Tampoco modifica la apariencia del balón dentro del juego.
+## Perfiles y actualización
 
-## Archivos del proyecto
+Los perfiles guardan nombres, logos, diseño, colores, cámaras, patrocinadores y opciones de visibilidad. Las filas adicionales de publicidad se conservan al guardar y cargar. Los perfiles anteriores se adaptan al formato actual.
 
-| Archivo | Función |
-| --- | --- |
-| `app.py` | Panel de escritorio, recepción TCP, estado del partido y servidor local para OBS. |
-| `api_config.py` | Activación de Stats API y copia de seguridad del INI. |
-| `overlay.html` | Diseño del marcador que se muestra en OBS. |
-| `boost-animation.js` | Interpolación de turbo independiente de la frecuencia de actualización. |
-| `assets/` | Recursos visuales del torneo. |
+Para actualizar, cierra la app, sustituye el ejecutable y los archivos externos si los usas, y vuelve a abrir desde el launcher o acceso directo. Actualiza la fuente de OBS y vuelve a abrir las vistas previas que estuvieran abiertas.
 
-Referencia de inspiración: [BARL](https://lndrlndr.github.io/BARL/).
+## Generar el ejecutable
 
-## Visibilidad automática
-
-La fuente de OBS solo se muestra en partidos privados online, de exhibición local o LAN (PlaylistId 6, 8 y 24). Se oculta al terminar o salir del partido, en modos públicos, entrenamiento, repeticiones guardadas y si se pierde la conexión. Los modos desconocidos se mantienen ocultos. Las repeticiones de gol dentro del partido conservan el marcador. La vista previa sigue mostrando los datos de ejemplo.
-
-## Cortina de gol
-
-En Elementos, Cortina de gol sustituye al aviso de victoria. Al recibir un gol de un partido privado se muestra durante 3 segundos un barrido diagonal con la paleta de Diseño y el logo de la cortina elegida. Durante la animación se ocultan los gráficos del overlay; después vuelven automáticamente. No cambia la escena de OBS, no incorpora una pelota ni mensajes de goleador. Probar cortina de gol abre una vista previa independiente del partido. El ajuste se conserva en perfiles mediante show_events para mantener compatibilidad.
-
-En Elementos → Diseño de cortina puedes elegir Original o Bigness League. La segunda utiliza el logo de Bigness League incluido en assets y una paleta azul cian, negro, gris y dorado propia. Ambas duran tres segundos y se activan una sola vez por gol, sin repetirse al terminar la replay. La elección se guarda en el perfil.
-
-## Estilo RCK y cortinas
-
-Diseño → Estilo → RCK aplica un preset inspirado en la referencia: cabecera con torneo, fase y ronda; placas inclinadas; paleta lavanda, azul claro y azul marino; barras laterales compactas; estadísticas horizontales y turbo de doble aro. Al elegirlo se ajustan colores y posiciones, que puedes personalizar después. Los datos siguen sincronizados con el juego.
-
-Las cortinas disponibles son Torneo Piruleta (antes Original), Bigness League y RCS. RCS utiliza el logo incluido y los colores #c80516 y #f9cd36. Los perfiles que guardaban Original se actualizan automáticamente al nombre Torneo Piruleta.
-
-## Cámaras · versión 1.2.2
-
-En Cámaras puedes activar Cámara estadísticas y Cámaras turbos. Los campos de configuración están dentro de la pestaña: escribe el nombre del jugador tal como aparece en Rocket League y su enlace de visualización OBS Ninja / VDO.Ninja con ?view=... Las mayúsculas y minúsculas no afectan. Pulsa Aplicar cambios para guardar en el estado del overlay y Guarda el perfil para conservar la configuración en otro archivo.
-
-La opción automática muestra las cámaras de los turbos durante 6,5 segundos al terminar la repetición de un gol. Las cámaras activadas manualmente siguen mostrándose después de ese intervalo. Las cámaras se reciben sin audio. La vista previa usa los jugadores configurados y muestra marcos de ejemplo cuando falta un enlace.
-
-
-### Comportamiento de las cámaras en 1.2.2
-
-- Cámara estadísticas y Cámaras turbos son excluyentes: activar una desactiva la otra.
-- Durante la repetición se ocultan el marcador, los turbos, las estadísticas y las cámaras. Solo permanece la barra de repetición si está activada y el estilo la admite.
-- La opción automática muestra las cámaras de turbos durante 6,5 segundos después de la repetición. Durante ese intervalo oculta la cámara de estadísticas; al terminar recupera la opción manual elegida.
-- Con la opción automática, las cámaras se precargan para reducir la espera al mostrarlas.
-- Las imágenes de cámara llenan el marco en todos los estilos, recortando lo necesario para evitar bandas laterales.
-- La zona de cámara tiene fondo transparente. El nombre y el turbo conservan su fondo. En RCK la franja mantiene su inclinación y la cámara es rectangular; en los otros estilos la cámara ocupa el mismo ancho que la caja del turbo.
-- Abrir vista previa muestra los mismos ajustes y abre la revisión actual del diseño. Para actualizar una fuente de OBS que ya estaba abierta, utiliza Actualizar en sus propiedades.
-
-
-### Pestaña Ajustes
-
-Ajustes sustituye a Textos y reúne los textos superior e inferior, Equipo azul, Equipo naranja y Control del partido. El panel lateral desaparece y las demás pestañas aprovechan todo el ancho disponible. Borrar nombres y escudos vacía ambos nombres y elimina sus escudos. Guardar perfil y Cargar perfil permanecen accesibles en la barra inferior, junto a Aplicar cambios.
-
-
-## Cambios de la versión 1.2.3
-
-- **Angular:** la barra inferior comienza donde termina la parte principal y continúa su misma inclinación.
-- **Turbo con cámaras:** en angular, classic y rounded, el turbo inferior se reduce únicamente al mostrar las seis cámaras de jugadores y recupera su tamaño al ocultarlas. La cámara de estadísticas mantiene el tamaño habitual del turbo. RCK conserva su comportamiento.
-- **BO4:** aparecen cuatro huecos de serie. El objetivo para ganar y el empate 2–2 siguen funcionando como antes.
-- **Ajustes:** sustituye a Textos. Arriba aparecen formato, texto de abajo y texto de arriba, sin marcos exteriores. Debajo están Reiniciar serie, Cambiar equipos de lado y Borrar nombres y escudos. Tras la separación aparecen los bloques ampliados de Equipo azul y Equipo naranja, con sus victorias de serie, nombre, escudo y goles recibidos de la API. Las indicaciones de serie y de comandos quedan debajo de los equipos.
-- **Espacio de trabajo:** el control del partido queda dentro de Ajustes; las demás pestañas usan todo el ancho. La ventana abre más alta y reserva espacio para Guardar perfil, Cargar perfil y Aplicar cambios.
-
-Reabre la aplicación desde el acceso directo o **Piruleta - Overlay.exe** tras actualizarla. Actualiza también la fuente de navegador de OBS para cargar los cambios visuales. La versión aparece en la ventana y en el pie de la aplicación.
-
-
-### Iconos de acciones
-
-En Elementos, Iconos de acciones activa los indicadores de gol, asistencia, parada, tiro y demolición junto al nombre en las barras de turbo de jugadores. Los iconos respetan los colores del panel y duran 4,5 segundos; las acciones diferentes del mismo jugador pueden aparecer juntas. Un tiro seguido de gol conserva los dos iconos durante la ventana del gol. Se activan mediante los eventos de la API durante partidos privados y se limpian en las repeticiones y al cambiar de partido. La vista previa muestra ejemplos periódicos sin modificar los datos del juego. La opción se conserva en los perfiles.
-
-
-## Cambios de la versión 1.2.4
-
-- Iconos de gol, asistencia, parada, tiro y demolición conectados a la API, con animación y duración de 4,5 segundos.
-- Casilla Iconos de acciones en Elementos, conservada en perfiles, y ejemplos periódicos en la vista previa.
-- PNG originales del juego descargados de Rocket League Wiki, incluidos localmente con su referencia de origen.
-- Barras de jugadores de angular, classic y rounded: 20 px más arriba y 15 px menos altas respecto a 1.2.3. RCK se mantiene.
-- Turbo inferior algo más grande con las seis cámaras visibles, conservando el ajuste para evitar superposiciones.
-
-Los PNG se sirven desde la carpeta assets; no se necesita acceder a la wiki durante la emisión. Activa los iconos en Elementos → Iconos de acciones. Después de actualizar, reabre la app y actualiza la fuente de navegador en OBS.
-
-
-Los iconos de acciones aparecen al final de la barra, en el extremo opuesto al nombre, sustituyendo temporalmente al número de turbo. Al caducar vuelven los datos habituales. En una demolición, el atacante muestra el icono y la barra de la víctima muestra el nombre del atacante, el icono y el de la víctima, con el color del equipo atacante. La vista previa incluye tiro y gol simultáneos y una demolición.
-
-
-## Cambios de la versión 1.2.5
-
-- Corregida la velocidad de la barra de replay: se usa GoalSpeed directamente en km/h, sin aplicar otra conversión.
-- Iconos de acciones al final de la barra, en el extremo opuesto al nombre.
-- Tiro y gol se muestran juntos; los eventos repetidos no duplican un mismo icono.
-- Demoliciones: bomba en el atacante y aviso con atacante, bomba y víctima en la barra de quien recibe la demolición.
-- El aviso de demolición cubre toda la barra y sus bordes con el color del atacante.
-- Apertura de la vista previa corregida, con archivos integrados en el ejecutable y alternativa si Windows no abre el navegador.
-- Launcher, documentación y ejecutable actualizados a 1.2.5.
-
-La vista previa usa los mismos ajustes que OBS. Si no se puede abrir el navegador, la aplicación avisa y copia el enlace para pegarlo manualmente.
-
-### Generar el ejecutable desde el código
-
-Con Python y PyInstaller instalados, ejecuta desde la carpeta del proyecto:
+Para trabajar con el código se necesita Python 3.11 o posterior con Tkinter. Para compilar, instala PyInstaller y ejecuta desde la carpeta del proyecto:
 
 ```powershell
+python -m pip install pyinstaller
 python -m PyInstaller --noconfirm Piruleta-Overlay.spec
 ```
 
-El resultado queda en `dist/Piruleta - Overlay.exe`. El archivo de compilación incluye el diseño, las fuentes, los iconos y las cortinas de gol. Para usar el launcher, coloca el ejecutable a su lado.
+El resultado queda en `dist/Piruleta - Overlay.exe`, con diseño, fuentes, iconos y cortinas integrados. Para usar Abrir Piruleta.cmd, coloca ese ejecutable a su lado. También puedes ejecutar el código con `python app.py`.
+
+## Historial
+
+Consulta [CHANGELOG.md](CHANGELOG.md). La versión 1.3 reúne la publicidad y sus controles, la reorganización de la app y los últimos ajustes visuales del overlay.
