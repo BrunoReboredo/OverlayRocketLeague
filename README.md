@@ -1,4 +1,4 @@
-# PIRULETA - Overlay 1.3
+# PIRULETA - Overlay 3.1
 
 Aplicación de escritorio para Windows para personalizar un overlay de Rocket League y mostrarlo en OBS.
 Recibe tiempo, goles, jugadores, turbo, estadísticas y acciones desde la Stats API del juego.
@@ -81,7 +81,7 @@ La pestaña reúne la información del partido y los datos de ambos equipos:
 
 - **Configurar conexión al juego…:** permite elegir la carpeta de Rocket League y preparar su API. Úsalo si la detección automática no encontró el juego o si lo has cambiado de ubicación.
 - **Formato de la serie:** BO1, BO2, BO3, BO4, BO5 o BO7. Adapta los huecos de victorias y el cálculo del partido actual. BO2 y BO4 admiten empate al agotar las partidas; BO4 muestra cuatro huecos y las series impares muestran los necesarios para ganar. Si el resultado actual no cabe en un formato menor, primero debes reiniciar la serie.
-- **Texto de arriba** y **Texto de abajo:** muestran literalmente lo que escribas en las franjas superior e inferior, también en RCK. Admiten `[GAME]` para el partido actual y `[SERIE]` para el número del formato. Por ejemplo, `PARTIDO [GAME] | AL MEJOR DE [SERIE]` puede mostrar `PARTIDO 2 | AL MEJOR DE 5`. Escribe ambos comandos en mayúsculas.
+- **Texto de arriba** y **Texto de abajo:** muestran literalmente lo que escribas en las franjas superior e inferior. Admiten `[GAME]` para el partido actual y `[SERIE]` para el número del formato. Por ejemplo, `PARTIDO [GAME] | AL MEJOR DE [SERIE]` puede mostrar `PARTIDO 2 | AL MEJOR DE 5`. Escribe ambos comandos en mayúsculas.
 - **Reiniciar serie:** pone a cero las victorias de ambos equipos. No modifica los goles del partido que envía el juego.
 - **Cambiar equipos de lado:** intercambia nombres, escudos, colores y victorias. Tiempo, goles y jugadores siguen los lados azul y naranja que envía Rocket League.
 - **Borrar nombres y escudos:** vacía esos datos de los dos equipos sin reiniciar sus victorias.
@@ -105,10 +105,10 @@ Una casilla marcada activa la función y una desmarcada la oculta o desactiva. L
 | **Turbo de todos los jugadores** | Muestra las tarjetas laterales con nombres, turbo y barras de cada jugador. |
 | **Turbo del jugador en cámara** | Muestra el indicador inferior del jugador que sigue el realizador. El valor cero se muestra como 0 y los cambios de turbo se animan suavemente. |
 | **Iconos de acciones** | Activa los avisos de gol, asistencia, parada, tiro y demolición sobre las tarjetas de los jugadores. |
-| **Barra de repetición de gol** | Muestra REPETICIÓN, el goleador en mayúsculas y la velocidad en km/h durante la replay, después de la cortina si está activada. No se muestra en el estilo RCK. |
+| **Barra de repetición de gol** | Muestra al goleador y al asistente con sus iconos, junto con la velocidad en km/h. Si el gol no tiene asistencia, el goleador aparece centrado. Si la cortina está activada, la barra aparece después. |
 | **Sumar victorias automáticamente (API)** | Añade la victoria de serie al equipo ganador al terminar cada partido. Puedes corregir las victorias en Ajustes. |
 | **Mostrar estadísticas** | Muestra los datos del jugador observado. El selector permite elegir **Rectángulo** o **Barra compacta**. |
-| **Cortina de gol** | Activa una animación de tres segundos, una sola vez al marcar el gol, ocultando temporalmente el marcador. Puedes elegir **Torneo Piruleta**, **Bigness League**, **RCS** o **RCK**, independientemente del estilo del marcador. **Probar cortina** abre una vista previa. |
+| **Cortina de gol** | Activa una animación de tres segundos, una sola vez al marcar el gol, ocultando temporalmente el marcador. Puedes elegir **Torneo Piruleta**, **Bigness League** o **RCS**, independientemente del estilo del marcador. **Probar cortina** abre una vista previa. |
 
 Los iconos de acciones duran 4,5 segundos. Aparecen en el extremo opuesto al nombre y sustituyen temporalmente al número de turbo. Tiro y gol pueden aparecer juntos. En una demolición, el atacante muestra la bomba y la víctima muestra el aviso con ambos nombres y el color del atacante. Los PNG originales están incluidos localmente; su procedencia se recoge en `assets/action-icons-source.txt`.
 
@@ -135,7 +135,7 @@ Las casillas **Publicidad rotativa**, **Publicidad en repetición** y **Publicid
 La pestaña Diseño se divide en **Colores** y **Estilos, tipografía y escala** a la izquierda, y **Fondos** a la derecha.
 
 - **Colores:** los botones **Equipo azul**, **Coral**, **Equipo naranja**, **Fondo** y **Texto** cambian la paleta del marcador. El selector permite introducir el color en hexadecimal, por ejemplo `#53A1A8`, o elegirlo visualmente. Azul y naranja identifican los lados: puedes asignarles otros colores.
-- **Estilo:** elige **angular**, **rounded**, **classic** o **RCK**. El estilo inicial es rounded con Verdana. Los ajustes de RCK y los de los otros estilos se conservan por separado. En angular, la barra inferior respeta la inclinación del marcador.
+- **Estilo:** elige **angular**, **rounded** o **classic**. El estilo inicial es rounded con Verdana. En angular, la barra inferior respeta la inclinación del marcador.
 - **Tipografía:** selecciona Montserrat, Arial, Segoe UI, Verdana, Trebuchet MS o Impact. Montserrat está incluida. **Importar fuente…** admite archivos TTF, OTF, WOFF o WOFF2 de hasta 16 MB y añade la fuente al selector, dejándola seleccionada.
 - **Escala (%):** ajusta el tamaño general del overlay entre el 50 % y el 150 %. Pulsa **Aplicar cambios** tras editar el valor, o confirma con Intro.
 - **Fondos por equipo:** los seis selectores permiten asignar por separado el fondo de **Turbo · equipo A/B**, **Estadísticas · equipo A/B** y **Jugadores equipo A/B**. A corresponde al lado azul y B al naranja. Cada selector utiliza un color de la paleta: Fondo principal, Equipo A, Color central, Equipo B o Color del texto. Así, turbo y estadísticas cambian de fondo al observar un jugador del otro equipo; las tarjetas laterales usan el fondo de su lado. Si modificas el color de la paleta, los fondos vinculados se actualizan también.
@@ -177,7 +177,7 @@ Para actualizar, cierra la app, sustituye el ejecutable y los archivos externos 
 
 ## Historial
 
-Consulta [CHANGELOG.md](CHANGELOG.md). La versión 1.3 reúne la publicidad y sus controles, la reorganización de la app y los últimos ajustes visuales del overlay.
+Consulta [CHANGELOG.md](CHANGELOG.md). La versión 3.1 añade el asistente y los iconos de gol y asistencia a la barra de repetición.
 
 ## Contribuidores
 

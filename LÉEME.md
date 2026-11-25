@@ -1,4 +1,4 @@
-# PIRULETA - Overlay 1.3
+# PIRULETA - Overlay 3.1
 
 Abre **Piruleta - Overlay.exe**, el acceso directo o **Abrir Piruleta.cmd**. El ejecutable incluye los recursos necesarios y no requiere Python instalado.
 

@@ -19,7 +19,7 @@ import webbrowser
 from api_config import discover_stats_ini, find_stats_ini, enable_stats_api
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '1.3'
+APP_VERSION = '3.1'
 RESOURCE_ROOT = Path(getattr(sys, '_MEIPASS', ROOT))
 
 def resource_path(relative):
@@ -105,10 +105,20 @@ DEFAULT = {
 DESIGN_FIELDS = ('colors', 'panels', 'panel_colors', 'x', 'y', 'scale')
 
 
+MINIMAL_DESIGN = 'Compacto'
+LEGACY_MINIMAL_DESIGN = 'Minimalista 0.1'
+DESIGNS = ('angular', 'rounded', 'classic', 'RCK', MINIMAL_DESIGN)
+DESIGN_GROUPS = ('standard', 'RCK', MINIMAL_DESIGN)
+
+
+def design_group(design):
+    return design if design in DESIGN_GROUPS else 'standard'
+
+
 def switch_design(raw, previous):
-    """Keep the regular layout and RCK layout independent across style changes."""
-    old_group = 'RCK' if previous == 'RCK' else 'standard'
-    new_group = 'RCK' if raw['design'] == 'RCK' else 'standard'
+    """Keep independent positions for standard, RCK and minimalist layouts."""
+    old_group = design_group(previous)
+    new_group = design_group(raw['design'])
     if old_group == new_group:
         return raw
     raw = copy.deepcopy(raw)
@@ -123,6 +133,12 @@ def switch_design(raw, previous):
             incoming['panels'].update(players0=[0, 190, 100], players1=[1620, 190, 100],
                                       focus=[0, 1030, 100], boost=[1695, 800, 120])
             incoming['panel_colors'].update(players0='dark', players1='dark', stats0='pink', stats1='yellow', boost0='dark', boost1='dark')
+        elif new_group == MINIMAL_DESIGN:
+            incoming.update(x=640, y=22, scale=100)
+            incoming['colors'].update(pink='#ffffff', yellow='#a8a8a8', coral='#525252',
+                                      dark='#101010', text='#ffffff')
+            incoming['panels'].update(players0=[24, 44, 100], players1=[1616, 44, 100],
+                                      focus=[24, 995, 100], boost=[1774, 930, 100])
     raw.update(incoming)
     return raw
 
@@ -164,8 +180,11 @@ def normalize_config(raw):
             c[key] = bool(raw.get(key, c[key]))
     if c['show_stats_camera'] and c['show_players_cameras']:
         c['show_players_cameras'] = False
-    if raw.get('design') in ('angular', 'rounded', 'classic', 'RCK'):
-        c['design'] = raw['design']
+    design = raw.get('design')
+    if design == LEGACY_MINIMAL_DESIGN:
+        design = MINIMAL_DESIGN
+    if design in DESIGNS:
+        c['design'] = design
     if raw.get('goal_style') == 'Original':
         c['goal_style'] = 'Torneo Piruleta'
     if raw.get('goal_style') in ('Torneo Piruleta', 'Bigness League', 'RCS', 'RCK'):
@@ -239,13 +258,16 @@ def normalize_config(raw):
         raise ValueError('Las victorias superan los partidos del formato. Reinicia la serie antes de cambiarlo.')
     presets = raw.get('design_presets', {})
     if isinstance(presets, dict):
-        for group in ('standard', 'RCK'):
-            if isinstance(presets.get(group), dict):
+        for group in DESIGN_GROUPS:
+            preset = presets.get(group)
+            if group == MINIMAL_DESIGN and not isinstance(preset, dict):
+                preset = presets.get(LEGACY_MINIMAL_DESIGN)
+            if isinstance(preset, dict):
                 # Normalize cached layouts without recursively copying caches.
-                saved = normalize_config({'design': 'RCK' if group == 'RCK' else 'rounded',
+                saved = normalize_config({'design': 'rounded' if group == 'standard' else group,
                                           'rck_layout_revision': raw.get('rck_layout_revision', 1),
                                           'layout_defaults_revision': raw.get('layout_defaults_revision', 0),
-                                          **{key: presets[group][key] for key in DESIGN_FIELDS if key in presets[group]}})
+                                          **{key: preset[key] for key in DESIGN_FIELDS if key in preset}})
                 c['design_presets'][group] = {key: copy.deepcopy(saved[key]) for key in DESIGN_FIELDS}
     # Early RCK releases overwrote the regular layout in existing profiles.
     # Recognize the exact shipped preset rather than treating user colors as RCK.
@@ -354,7 +376,7 @@ class Store:
             actions = [dict(action, remaining=int((action['until']-now)*1000)) for action in self.player_actions.values()]
             goal_remaining = max(0, int((self.goal_until-time.monotonic())*1000))
             replay = (self.last_goal if self.in_goal_replay and not self.history_replay
-                      and self.config['show_goal_replay'] and self.config['design'] != 'RCK' else None)
+                      and self.config['show_goal_replay'] else None)
             camera_remaining = (max(0, int((self.auto_camera_until-time.monotonic())*1000))
                                 if self.config['auto_replay_cameras'] and not self.match_closed
                                 and not self.history_replay and self.playlist_id in PRIVATE_PLAYLISTS else 0)
@@ -497,7 +519,10 @@ class Store:
                     speed = d.get('GoalSpeed')
                     speed_kmh = (round(speed) if type(speed) in (int, float)
                                  and math.isfinite(speed) and speed >= 0 else None)
+                    assister = d.get('Assister')
+                    assist_name = assister.get('Name') if isinstance(assister, dict) else None
                     self.last_goal = {'name': scorer.get('Name') or '', 'team': team,
+                                      'assist_name': assist_name.strip() if isinstance(assist_name, str) else '',
                                       'speed_kmh': speed_kmh}
                     if self.config['show_events']:
                         self.goal_sequence += 1
@@ -606,7 +631,7 @@ def preview_snapshot(store, replay=False, overtime=False):
     snapshot['overlay_visible'] = True
     snapshot['goal_replay_active'] = replay
     snapshot['overtime_remaining'] = 3000 if overtime else 0
-    snapshot['goal_replay'] = {'name': 'PIRU', 'team': 0, 'speed_kmh': 104} if replay else None
+    snapshot['goal_replay'] = {'name': 'PIRU', 'assist_name': 'CANDY', 'team': 0, 'speed_kmh': 104} if replay else None
     snapshot['match'] = {
         'scores': [2, 1], 'time': 0 if overtime else 193, 'overtime': overtime, 'target': 'PIRU', 'banner': '',
         'players': [{'Name': name, 'TeamNum': i//3, 'Boost': boost,
@@ -629,6 +654,7 @@ def preview_snapshot(store, replay=False, overtime=False):
                                                id=f'preview-{sample_tick}-victim', remaining=sample_remaining))
     if replay:
         snapshot['goal_replay']['name'] = snapshot['match']['target']
+        snapshot['goal_replay']['assist_name'] = snapshot['match']['players'][1]['Name']
     return snapshot
 
 
@@ -926,7 +952,7 @@ class App:
             ttk.Button(colorrow, text=title, command=lambda k=key: self.color(k)).grid(
                 row=index//3, column=index%3, sticky='ew', padx=3, pady=4)
         ttk.Label(design, text='Estilos, tipografía y escala', font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(12, 10))
-        self.entry(design, 'Estilo', 'design', choices=['angular', 'rounded', 'classic', 'RCK'])
+        self.entry(design, 'Estilo', 'design', choices=DESIGNS)
         self.font_selector = self.entry(design, 'Tipografía', 'font', choices=self.font_choices())
         ttk.Button(self.font_selector.master, text='Importar fuente…', command=self.import_font).pack(side='left', padx=(8, 0))
         self.entry(design, 'Escala (%)', 'scale', numeric=(50, 150))
@@ -1229,7 +1255,7 @@ class App:
                                    for slot, (name, logo) in self.sponsor_vars.items()}
                 palette_keys = {label: key for key, label in self.palette_labels.items()}
                 raw['panel_colors'] = {key: palette_keys[var.get()] for key, var in self.panel_color_vars.items()}
-                changed_layout = (raw['design'] == 'RCK') != (self.store.config['design'] == 'RCK')
+                changed_layout = design_group(raw['design']) != design_group(self.store.config['design'])
                 raw = switch_design(raw, self.store.config['design'])
                 self.store.config = normalize_config(raw)
             if changed_layout:

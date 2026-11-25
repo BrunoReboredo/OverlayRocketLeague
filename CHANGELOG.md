@@ -1,5 +1,9 @@
 # Cambios
 
+## 3.1
+
+- La barra de repetición muestra al goleador y al asistente con sus iconos. El goleador queda centrado cuando no hay asistencia.
+
 ## 1.3
 
 - Nueva pestaña Publicidad con patrocinadores rotativos, de repetición y de prórroga, logos de hasta 4 MB y vistas previas.
