@@ -12,7 +12,11 @@ Se conecta y reconecta automáticamente.
 - [Pestañas](#pestañas)
 - [Ajustes](#ajustes)
 - [Elementos](#elementos)
-- [Diseño y estadísticas](#diseño-y-estadísticas)
+  - [Iconos]
+  - [Estadísticas]
+  - [Cámaras: activación y configuración]
+  - [Publicidad: activación]
+- [Diseño](#diseño)
 - [Publicidad](#publicidad)
   - [Patrocinadores rotativos](#patrocinadores-rotativos)
   - [Patrocinadores de jugadas](#patrocinadores-de-jugadas)
@@ -110,7 +114,14 @@ Una casilla marcada activa la función y una desmarcada la oculta o desactiva. L
 | **Mostrar estadísticas** | Muestra los datos del jugador observado. El selector permite elegir **Rectángulo** o **Barra compacta**. |
 | **Cortina de gol** | Activa una animación de tres segundos, una sola vez al marcar el gol, ocultando temporalmente el marcador. Puedes elegir **Torneo Piruleta**, **Bigness League** o **RCS**, independientemente del estilo del marcador. **Probar cortina** abre una vista previa. |
 
+### Iconos
 Los iconos de acciones duran 4,5 segundos. Aparecen en el extremo opuesto al nombre y sustituyen temporalmente al número de turbo. Tiro y gol pueden aparecer juntos. En una demolición, el atacante muestra la bomba y la víctima muestra el aviso con ambos nombres y el color del atacante. Los PNG originales están incluidos localmente; su procedencia se recoge en `assets/action-icons-source.txt`.
+
+### Estadísticas
+
+Las estadísticas se activan y su formato se elige en **Elementos → Mostrar estadísticas**. **Rectángulo** sustituye al nombre anterior Actual; **Barra compacta** distribuye los datos horizontalmente. Muestran nombre, puntos, goles, tiros, asistencias y salvadas del jugador observado según los datos disponibles de la API; no copian la selección de estadísticas del menú del juego.
+
+Por defecto las estadísticas se anclan a los bordes izquierdo e inferior y mantienen su posición al activar las cámaras. El turbo inferior se muestra completo con 12 px de margen. Las tarjetas laterales quedan pegadas a los bordes y sus franjas de color tienen 5 px de grosor
 
 ### Cámaras: activación y configuración
 
@@ -130,20 +141,16 @@ Durante la repetición se ocultan el marcador, los turbos, las estadísticas y l
 
 Las casillas **Publicidad rotativa**, **Publicidad en repetición** y **Publicidad en prórroga** permiten activar cada ubicación por separado. Desactivarlas no borra los nombres ni los logos. Sus contenidos, intervalos y pruebas se configuran en la pestaña [Publicidad](#publicidad).
 
-## Diseño y estadísticas
+## Diseño
 
 La pestaña Diseño se divide en **Colores** y **Estilos, tipografía y escala** a la izquierda, y **Fondos** a la derecha.
 
 - **Colores:** los botones **Equipo azul**, **Coral**, **Equipo naranja**, **Fondo** y **Texto** cambian la paleta del marcador. El selector permite introducir el color en hexadecimal, por ejemplo `#53A1A8`, o elegirlo visualmente. Azul y naranja identifican los lados: puedes asignarles otros colores.
-- **Estilo:** elige **angular**, **rounded** o **classic**. El estilo inicial es rounded con Verdana. En angular, la barra inferior respeta la inclinación del marcador.
+- **Estilo:** elige **angular**, **rounded** o **classic**. Es posible añadir estilos personalizados, consultar con el desarrollador.
 - **Tipografía:** selecciona Montserrat, Arial, Segoe UI, Verdana, Trebuchet MS o Impact. Montserrat está incluida. **Importar fuente…** admite archivos TTF, OTF, WOFF o WOFF2 de hasta 16 MB y añade la fuente al selector, dejándola seleccionada.
 - **Escala (%):** ajusta el tamaño general del overlay entre el 50 % y el 150 %. Pulsa **Aplicar cambios** tras editar el valor, o confirma con Intro.
 - **Fondos por equipo:** los seis selectores permiten asignar por separado el fondo de **Turbo · equipo A/B**, **Estadísticas · equipo A/B** y **Jugadores equipo A/B**. A corresponde al lado azul y B al naranja. Cada selector utiliza un color de la paleta: Fondo principal, Equipo A, Color central, Equipo B o Color del texto. Así, turbo y estadísticas cambian de fondo al observar un jugador del otro equipo; las tarjetas laterales usan el fondo de su lado. Si modificas el color de la paleta, los fondos vinculados se actualizan también.
 - **Fondo del marcador en degradado (desmarcado: plano):** activa el degradado del marcador principal o utiliza colores planos.
-
-Las estadísticas se activan y su formato se elige en **Elementos → Mostrar estadísticas**. **Rectángulo** sustituye al nombre anterior Actual; **Barra compacta** distribuye los datos horizontalmente. Muestran nombre, puntos, goles, tiros, asistencias y salvadas del jugador observado según los datos disponibles de la API; no copian la selección de estadísticas del menú del juego.
-
-Por defecto las estadísticas se anclan a los bordes izquierdo e inferior y mantienen su posición al activar las cámaras. El turbo inferior se muestra completo con 12 px de margen. Las tarjetas laterales quedan pegadas a los bordes y sus franjas de color tienen 5 px de grosor.
 
 ## Publicidad
 
