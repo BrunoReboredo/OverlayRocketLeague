@@ -768,6 +768,11 @@ class App:
             ('Piruleta.Check.indicator', {'side': 'left', 'sticky': ''}),
             ('Checkbutton.label', {'side': 'left', 'sticky': 'nswe'})]})])
         style.configure('Piruleta.TCheckbutton', padding=(0, 6), background='#201b2c')
+        # Blend the inherited hover highlight halfway into the panel background.
+        hover = root.winfo_rgb(style.lookup('Piruleta.TCheckbutton', 'background', ('active',)))
+        panel = root.winfo_rgb('#201b2c')
+        softened_hover = '#' + ''.join(f'{round((a + b) / 2 / 257):02x}' for a, b in zip(hover, panel))
+        style.map('Elementos.Piruleta.TCheckbutton', background=[('active', softened_hover)])
         self.vars, self.team_vars = {}, [{}, {}]
         head = tk.Frame(root, bg='#12101a')
         head.pack(fill='x', padx=24, pady=(20, 12))
@@ -810,7 +815,7 @@ class App:
             variable = tk.BooleanVar(value=self.store.config[key])
             self.vars[key] = variable
             ttk.Checkbutton(advertising_options, text='  '+title, variable=variable,
-                            command=self.apply, style='Piruleta.TCheckbutton').pack(anchor='w', pady=3)
+                            command=self.apply, style='Elementos.Piruleta.TCheckbutton').pack(anchor='w', pady=3)
         self.palette_labels = {'dark': 'Fondo principal', 'pink': 'Equipo A', 'coral': 'Color central',
                                'yellow': 'Equipo B', 'text': 'Color del texto'}
         self.panel_color_vars = {}
@@ -829,7 +834,7 @@ class App:
         self.vars['scoreboard_gradient'] = tk.BooleanVar(value=self.store.config['scoreboard_gradient'])
         ttk.Checkbutton(backgrounds, text='  Fondo del marcador en degradado (desmarcado: plano)',
                         variable=self.vars['scoreboard_gradient'], command=self.apply,
-                        style='Piruleta.TCheckbutton').pack(anchor='w', pady=6)
+                        style='Elementos.Piruleta.TCheckbutton').pack(anchor='w', pady=6)
         ttk.Label(backgrounds, text='Al cambiar esos colores en Diseño, los fondos elegidos se actualizan también.',
                   wraplength=500, foreground='#b6a4c3').pack(anchor='w', pady=12)
         info_header = ttk.Frame(teams)
@@ -929,7 +934,7 @@ class App:
             v = tk.BooleanVar(value=self.store.config[k])
             self.vars[k] = v
             ttk.Checkbutton(visibility, text='  '+label, variable=v, command=self.apply,
-                            style='Piruleta.TCheckbutton').pack(anchor='w', pady=2)
+                            style='Elementos.Piruleta.TCheckbutton').pack(anchor='w', pady=2)
         for key, label in [('show_stats_camera', 'Cámara estadísticas'),
                            ('show_players_cameras', 'Cámaras turbos'),
                            ('auto_replay_cameras', 'Mostrar cámaras turbos durante 6,5 s al terminar la repetición')]:
@@ -937,7 +942,7 @@ class App:
             self.vars[key] = variable
             ttk.Checkbutton(camera_options, text='  '+label, variable=variable,
                             command=lambda key=key: self.change_camera_mode(key),
-                            style='Piruleta.TCheckbutton').pack(anchor='w', pady=5)
+                            style='Elementos.Piruleta.TCheckbutton').pack(anchor='w', pady=5)
         ttk.Label(cameras, text='Nombre del jugador en Rocket League y enlace de visualización OBS Ninja / VDO.Ninja.',
                   wraplength=600, font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 8))
         camera_fields = ttk.Frame(cameras)
@@ -957,7 +962,7 @@ class App:
         stats_row.pack(fill='x', pady=3)
         self.vars['show_stats'] = tk.BooleanVar(value=self.store.config['show_stats'])
         ttk.Checkbutton(stats_row, text='  Mostrar estadísticas', variable=self.vars['show_stats'],
-                        command=self.apply, style='Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
+                        command=self.apply, style='Elementos.Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
         self.vars['stats_style'] = tk.StringVar(value=self.store.config['stats_style'])
         stats_selector = ttk.Combobox(stats_row, textvariable=self.vars['stats_style'],
                                      values=STATS_STYLES, state='readonly', width=18)
@@ -968,7 +973,7 @@ class App:
         curtain_row.pack(fill='x', pady=3)
         self.vars['show_events'] = tk.BooleanVar(value=self.store.config['show_events'])
         ttk.Checkbutton(curtain_row, text='  Cortina de gol', variable=self.vars['show_events'],
-                        command=self.apply, style='Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
+                        command=self.apply, style='Elementos.Piruleta.TCheckbutton').pack(side='left', padx=(0, 8))
         self.vars['goal_style'] = tk.StringVar(value=self.store.config['goal_style'])
         curtain_selector = ttk.Combobox(curtain_row, textvariable=self.vars['goal_style'],
                                        values=['Torneo Piruleta', 'Bigness League', 'RCS', 'RCK'], state='readonly', width=18)
