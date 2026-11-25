@@ -12,10 +12,11 @@ Se conecta y reconecta automáticamente.
 - [Pestañas](#pestañas)
 - [Ajustes](#ajustes)
 - [Elementos](#elementos)
-  - [Iconos]
-  - [Estadísticas]
-  - [Cámaras: activación y configuración]
-  - [Publicidad: activación]
+  - [General](#general)
+  - [Iconos](#iconos)
+  - [Estadísticas](#estadísticas)
+  - [Cámaras: activación y configuración](#cámaras-activación-y-configuración)
+  - [Publicidad: activación](#publicidad-activación)
 - [Diseño](#diseño)
 - [Publicidad](#publicidad)
   - [Patrocinadores rotativos](#patrocinadores-rotativos)
