@@ -16,6 +16,7 @@ from tkinter import ttk, colorchooser, filedialog, messagebox
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit, parse_qsl, urlencode
 import webbrowser
+from api_config import discover_stats_ini, find_stats_ini, enable_stats_api
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
 APP_VERSION = '1.3'
@@ -831,7 +832,10 @@ class App:
                         style='Piruleta.TCheckbutton').pack(anchor='w', pady=6)
         ttk.Label(backgrounds, text='Al cambiar esos colores en Diseño, los fondos elegidos se actualizan también.',
                   wraplength=500, foreground='#b6a4c3').pack(anchor='w', pady=12)
-        ttk.Label(teams, text='Información del partido', font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 12))
+        info_header = ttk.Frame(teams)
+        info_header.pack(fill='x', pady=(0, 12))
+        ttk.Label(info_header, text='Información del partido', font=('Segoe UI', 16, 'bold')).pack(side='left')
+        ttk.Button(info_header, text='Configurar conexión al juego…', style='Control.TButton', command=lambda: self.setup_game_api(manual=True)).pack(side='right')
         match_info = ttk.Frame(teams)
         match_info.pack(fill='x')
         for column, weight in enumerate((1, 3, 4)):
@@ -997,6 +1001,40 @@ class App:
         root.geometry(f'{width}x{height}')
         self.connect()
         self.refresh()
+        self.root.after(500, self.setup_game_api)
+
+    def setup_game_api(self, manual=False):
+        settings = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'PiruletaOverlay' / 'game-api.json'
+        previous = {}
+        try:
+            previous = json.loads(settings.read_text('utf-8'))
+        except (OSError, ValueError):
+            pass
+        cached = Path(previous.get('path', ''))
+        path = cached if cached.is_file() else discover_stats_ini()
+        if manual or (path is None and not previous.get('prompted')):
+            folder = filedialog.askdirectory(parent=self.root, title='Selecciona la carpeta de instalación de Rocket League para activar los datos del juego')
+            if folder:
+                path = find_stats_ini(folder)
+                if path is None:
+                    messagebox.showwarning('Rocket League', 'No se encuentra TAGame/Config/TAStatsAPI.ini ni DefaultStatsAPI.ini en esa carpeta. Puedes volver a intentarlo con Configurar conexión al juego.', parent=self.root)
+        try:
+            if path:
+                backup, port = enable_stats_api(path)
+                with self.store.lock:
+                    changed_port = self.store.config['api_port'] != port
+                    self.store.config['api_port'] = port
+                if changed_port:
+                    self.connect()
+                previous['path'] = str(path)
+                if backup or manual:
+                    detail = f'\nCopia de seguridad: {backup}' if backup else ''
+                    messagebox.showinfo('Conexión preparada', 'La API de Rocket League está activada. Si el juego estaba abierto, ciérralo y vuelve a abrirlo para que aplique la configuración.' + detail, parent=self.root)
+            previous['prompted'] = True
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps(previous), 'utf-8')
+        except OSError as exc:
+            messagebox.showerror('No se pudo preparar la conexión', 'No se ha podido configurar el archivo del juego. Si Windows deniega el acceso, cierra la app y ábrela una vez como administrador. Después pulsa Configurar conexión al juego.\n\n' + str(exc), parent=self.root)
 
     def build_advertising_tab(self, parent):
         canvas = tk.Canvas(parent, bg='#201b2c', highlightthickness=0, borderwidth=0)

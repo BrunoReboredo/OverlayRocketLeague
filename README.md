@@ -13,7 +13,13 @@ Si junto al ejecutable existen `overlay.html`, `boost-animation.js` o archivos d
 
 ## Conectar Rocket League
 
-Con Rocket League cerrado, abre `TAGame/Config/TAStatsAPI.ini` o `DefaultStatsAPI.ini` dentro de la instalación del juego. Guarda una copia antes de modificarlo y configura:
+Al abrir la aplicación, busca automáticamente Rocket League en las instalaciones de Epic Games y Steam (incluidas sus bibliotecas adicionales) y activa su Stats API. Antes de cambiar el archivo guarda una copia `.piruleta-…bak` en la misma carpeta. Si ya está configurado, no crea otra copia ni vuelve a escribirlo.
+
+Si no encuentra el juego en el primer inicio, te pedirá seleccionar su carpeta de instalación. Puedes cancelar y seguir usando la vista previa. En **Ajustes → Configurar conexión al juego…** puedes repetir el proceso cuando quieras. La app recuerda la ubicación y comprueba la configuración al abrirse, también después de una actualización del juego.
+
+Si Rocket League estaba abierto al activar la API, **ciérralo y vuelve a abrirlo**. Si Windows impide modificar el archivo, abre una vez la app como administrador y repite la configuración. No instala complementos ni requiere Python. El juego debe estar instalado en el mismo ordenador; copiar el ejecutable a otro equipo no copia Rocket League.
+
+Como alternativa, con el juego cerrado puedes editar `TAGame/Config/TAStatsAPI.ini` o `DefaultStatsAPI.ini` dentro de su instalación, guardando antes una copia:
 
 ```ini
 [TAGame.MatchStatsExporter_TA]

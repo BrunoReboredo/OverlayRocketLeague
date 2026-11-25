@@ -1,6 +1,8 @@
 """Enable the official Stats API in a user-selected INI, preserving other settings."""
 from pathlib import Path
 import re
+import json
+import os
 import shutil
 import time
 
@@ -51,7 +53,67 @@ def enable_stats_api(path):
     for key, (name, value) in values.items():
         if key not in seen:
             output.append(f'{name}={value}')
+    updated = (newline.join(lines[:start+1]+output+lines[end:])+newline).encode(encoding)
+    if updated == data:
+        return None, port
     backup = path.with_name(path.name+f'.piruleta-{time.time_ns()}.bak')
     shutil.copy2(path, backup)
-    path.write_bytes((newline.join(lines[:start+1]+output+lines[end:])+newline).encode(encoding))
+    path.write_bytes(updated)
     return backup, port
+
+
+def find_stats_ini(folder):
+    """Accept the installation folder, TAGame or its Config directory."""
+    folder = Path(folder)
+    for directory in (folder / 'TAGame' / 'Config', folder / 'Config', folder):
+        for name in ('TAStatsAPI.ini', 'DefaultStatsAPI.ini'):
+            candidate = directory / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def discover_stats_ini():
+    """Read launcher manifests; never recursively scan the user's drives."""
+    candidates = []
+    manifests = Path(os.environ.get('PROGRAMDATA', 'C:/ProgramData')) / 'Epic/EpicGamesLauncher/Data/Manifests'
+    for manifest in manifests.glob('*.item'):
+        try:
+            item = json.loads(manifest.read_text('utf-8-sig'))
+            if 'rocket' in (item.get('DisplayName', '') + item.get('AppName', '')).lower():
+                candidates.append(Path(item['InstallLocation']))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    steam_roots = [Path(os.environ.get('PROGRAMFILES(X86)', 'C:/Program Files (x86)')) / 'Steam']
+    if os.name == 'nt':
+        import winreg
+        for hive, key, value in ((winreg.HKEY_CURRENT_USER, r'Software\Valve\Steam', 'SteamPath'),
+                                 (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\WOW6432Node\Valve\Steam', 'InstallPath')):
+            try:
+                with winreg.OpenKey(hive, key) as handle:
+                    steam_roots.append(Path(winreg.QueryValueEx(handle, value)[0]))
+            except OSError:
+                pass
+    libraries = list(steam_roots)
+    for steam in steam_roots:
+        try:
+            vdf = (steam / 'steamapps/libraryfolders.vdf').read_text('utf-8-sig')
+            libraries.extend(Path(value.replace('\\\\', '\\')) for value in re.findall(r'"path"\s*"([^"\n]+)"', vdf))
+        except OSError:
+            pass
+    for library in libraries:
+        base = library / 'steamapps'
+        try:
+            manifest = (base / 'appmanifest_252950.acf').read_text('utf-8-sig')
+            match = re.search(r'"installdir"\s*"([^"\n]+)"', manifest)
+            if match:
+                candidates.append(base / 'common' / match[1])
+        except OSError:
+            pass
+        candidates.append(base / 'common/rocketleague')
+    candidates.append(Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'Epic Games/rocketleague')
+    for candidate in candidates:
+        found = find_stats_ini(candidate)
+        if found:
+            return found
+    return None
