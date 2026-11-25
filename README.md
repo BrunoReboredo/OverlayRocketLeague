@@ -133,3 +133,6 @@ El resultado queda en `dist/Piruleta - Overlay.exe`, con diseño, fuentes, icono
 ## Historial
 
 Consulta [CHANGELOG.md](CHANGELOG.md). La versión 1.3 reúne la publicidad y sus controles, la reorganización de la app y los últimos ajustes visuales del overlay.
+
+## Contribuidores
+[<img src="https://avatars.githubusercontent.com/u/113421203?v=4" width=115><br><sub>Bruno Reboredo Álvarez</sub>](https://github.com/Brunoo652) 
