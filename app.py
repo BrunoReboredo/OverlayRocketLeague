@@ -128,7 +128,7 @@ def switch_design(raw, previous):
     if incoming is None:
         incoming = {key: copy.deepcopy(DEFAULT[key]) for key in DESIGN_FIELDS}
         if new_group == 'RCK':
-            incoming['colors'].update(pink='#BEB4E6', yellow='#99C6DA', coral='#d9e0eb', dark='#04174A', text='#ffffff')
+            incoming['colors'].update(pink='#BEB4E6', yellow='#63C2C5', coral='#d9e0eb', dark='#04174A', text='#ffffff')
             incoming.update(x=500, y=0, scale=100)
             incoming['panels'].update(players0=[0, 190, 100], players1=[1620, 190, 100],
                                       focus=[0, 1030, 100], boost=[1695, 800, 120])
@@ -309,6 +309,13 @@ def normalize_config(raw):
                                        panels[key][1], panels[key][2]]
                     else:
                         panels[key] = list(new_value)
+    # Update only the former RCK default; preserve user-selected team colors.
+    rck_layouts = ([c] if c['design'] == 'RCK' else [])
+    if 'RCK' in c['design_presets']:
+        rck_layouts.append(c['design_presets']['RCK'])
+    for layout in rck_layouts:
+        if layout['colors']['yellow'].upper() == '#99C6DA':
+            layout['colors']['yellow'] = '#63C2C5'
     for layout in [c] + list(c['design_presets'].values()):
         position = layout['panels']['focus']
         if position[:2] == [1280, 1030]:
