@@ -38,7 +38,6 @@
 - Demoliciones: bomba en el atacante y aviso con atacante, bomba y víctima en la barra de quien recibe la demolición.
 - El aviso de demolición cubre toda la barra y sus bordes con el color del atacante.
 - Apertura de la vista previa corregida, con archivos integrados en el ejecutable y alternativa si Windows no abre el navegador.
-- Launcher, documentación y ejecutable actualizados a 1.2.5.
 
 
 ## 1.2.7
