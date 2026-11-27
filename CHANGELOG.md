@@ -9,7 +9,7 @@
 - Barra de repetición de Compacto unificada con los demás estilos; patrocinador recolocado para evitar solapamientos.
 - README actualizado con las siglas de equipos.
 
-## 3.1
+## 1.3.1
 
 - La barra de repetición muestra al goleador y al asistente con sus iconos. El goleador queda centrado cuando no hay asistencia.
 
@@ -30,7 +30,7 @@
 - Imagen PATROCÍNATE AQUÍ incluida en assets para usar como logo de ejemplo.
 
 
-## 1.2.5
+## 1.2.8
 
 - Corregida la velocidad de la barra de replay: se usa GoalSpeed directamente en km/h, sin aplicar otra conversión.
 - Iconos de acciones al final de la barra, en el extremo opuesto al nombre.
@@ -41,7 +41,7 @@
 - Launcher, documentación y ejecutable actualizados a 1.2.5.
 
 
-## 1.2.4
+## 1.2.7
 
 - Iconos de gol, asistencia, parada, tiro y demolición conectados a la API, con animación y duración de 4,5 segundos.
 - Casilla Iconos de acciones en Elementos, conservada en perfiles, y ejemplos periódicos en la vista previa.
@@ -50,7 +50,7 @@
 - Turbo inferior algo más grande con las seis cámaras visibles, conservando el ajuste para evitar superposiciones.
 
 
-## 1.2.3
+## 1.2.6
 
 - Barra inferior angular alineada con la inclinación de la parte principal.
 - Turbo inferior reducido solo con las seis cámaras visibles en angular, classic y rounded. La cámara de estadísticas mantiene su tamaño habitual; RCK no cambia.
@@ -61,7 +61,7 @@
 - Pestañas a todo ancho, ventana inicial más alta y espacio reservado para los botones inferiores.
 - README y ejecutable actualizados.
 
-## 1.2.2 · actualización de cámaras
+## 1.2.5 · actualización de cámaras
 
 - Cámaras manuales excluyentes y cámaras temporales durante 6,5 segundos tras la replay.
 - Ocultación de gráficos durante las repeticiones y precarga de cámaras.
@@ -69,7 +69,7 @@
 - Cámaras RCK rectangulares y cabeceras inclinadas.
 - Vista previa actualizada y launcher de la versión 1.2.2.
 
-## 1.2.1 · actualización de Cámaras
+## 1.2.4 · actualización de Cámaras
 
 - Nueva pestaña Cámaras para las opciones de cámara de estadísticas y cámaras de turbos.
 - Configuración de los enlaces integrada en la misma pestaña.
@@ -77,7 +77,7 @@
 - Conservación de enlaces y opciones al guardar y cargar perfiles.
 
 
-## 0.8.2
+## 1.2.3
 
 - Estadísticas e indicador de turbo desplazados 15 px hacia abajo.
 - Cámara de estadísticas pegada al panel y alineada con el inicio del borde superior de RCK.
