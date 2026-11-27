@@ -19,7 +19,7 @@ import webbrowser
 from api_config import discover_stats_ini, find_stats_ini, enable_stats_api
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parent
-APP_VERSION = '3.1'
+APP_VERSION = '1.3.2'
 RESOURCE_ROOT = Path(getattr(sys, '_MEIPASS', ROOT))
 
 def resource_path(relative):
@@ -84,8 +84,8 @@ DEFAULT = {
     'show_sponsor_rotation': True, 'show_sponsor_replay': True, 'show_sponsor_overtime': True,
     'sponsors': {slot: {'name': '', 'logo': ''} for slot in SPONSOR_SLOTS},
     'event': 'TORNEO PIRULETA', 'round': 'GRAN FINAL · PARTIDO [GAME]', 'bestof': 5,
-    'teams': [{'name': 'PINK CANDY', 'logo': '', 'wins': 0},
-              {'name': 'GOLDEN POP', 'logo': '', 'wins': 0}],
+    'teams': [{'name': 'PINK CANDY', 'abbreviation': '', 'logo': '', 'wins': 0},
+              {'name': 'GOLDEN POP', 'abbreviation': '', 'logo': '', 'wins': 0}],
     'colors': {'pink': '#fa54b7', 'coral': '#ff8875', 'yellow': '#ffd14c',
                'dark': '#181426', 'text': '#ffffff'},
     'show_logos': True, 'show_players': True, 'show_stats': True, 'stats_style': 'Rectángulo',
@@ -252,6 +252,7 @@ def normalize_config(raw):
                 c['colors'][key] = value
     for i, team in enumerate(raw.get('teams', [])[:2]):
         c['teams'][i] = {'name': str(team.get('name', 'EQUIPO'))[:80],
+                         'abbreviation': str(team.get('abbreviation', '')).strip()[:4],
                          'logo': str(team.get('logo', ''))[:MAX_LOGO_DATA_URL_CHARS],
                          'wins': max(0, min(c['bestof']//2+1, int(team.get('wins', 0))))}
     if sum(t['wins'] for t in c['teams']) > c['bestof']:
@@ -923,10 +924,19 @@ class App:
             logo_label = ttk.Label(series_row, text='Sin escudo', anchor='center', width=12)
             logo_label.pack(side='right', padx=(12, 0))
             self.logo_labels.append(logo_label)
-            ttk.Label(card, text='Nombre del equipo').pack(anchor='w')
+            identity = ttk.Frame(card)
+            identity.pack(fill='x', pady=(0, 16))
+            identity.columnconfigure(0, weight=1)
+            ttk.Label(identity, text='Nombre del equipo').grid(row=0, column=0, sticky='w', pady=(0, 7))
+            ttk.Label(identity, text='Siglas del equipo').grid(row=0, column=1, sticky='w', padx=(12, 0), pady=(0, 7))
             variable = tk.StringVar(value=self.store.config['teams'][i]['name'])
             self.team_vars[i]['name'] = variable
-            ttk.Entry(card, textvariable=variable).pack(fill='x', pady=(7, 16))
+            ttk.Entry(identity, textvariable=variable).grid(row=1, column=0, sticky='ew')
+            abbreviation = tk.StringVar(value=self.store.config['teams'][i].get('abbreviation', ''))
+            self.team_vars[i]['abbreviation'] = abbreviation
+            validate_abbreviation = (root.register(lambda value: len(value) <= 4), '%P')
+            ttk.Entry(identity, textvariable=abbreviation, width=8,
+                      validate='key', validatecommand=validate_abbreviation).grid(row=1, column=1, sticky='ew', padx=(12, 0))
             logo_actions = ttk.Frame(card)
             logo_actions.pack(fill='x')
             ttk.Button(logo_actions, text='Subir escudo…', command=lambda i=i: self.logo(i)).pack(side='left', fill='x', expand=True, padx=(0, 8))
@@ -1249,6 +1259,7 @@ class App:
                     raw[k] = v.get()
                 for i in range(2):
                     raw['teams'][i]['name'] = self.team_vars[i]['name'].get()
+                    raw['teams'][i]['abbreviation'] = self.team_vars[i]['abbreviation'].get()
                 raw['cameras'] = [{'name': name.get(), 'url': url.get()} for name, url in self.camera_vars]
                 raw['sponsor_rotation_count'] = self.rotation_count
                 raw['sponsors'] = {slot: {'name': name.get(), 'logo': logo.get()}
@@ -1275,6 +1286,7 @@ class App:
             var.set(self.palette_labels[c['panel_colors'][key]])
         for i in range(2):
             self.team_vars[i]['name'].set(c['teams'][i]['name'])
+            self.team_vars[i]['abbreviation'].set(c['teams'][i].get('abbreviation', ''))
         for index, (name, url) in enumerate(self.camera_vars):
             camera = c['cameras'][index] if index < len(c['cameras']) else {}
             name.set(camera.get('name', ''))
@@ -1378,6 +1390,7 @@ class App:
     def clear_teams(self):
         for team in self.team_vars:
             team['name'].set('')
+            team['abbreviation'].set('')
         with self.store.lock:
             for team in self.store.config['teams']:
                 team['logo'] = ''

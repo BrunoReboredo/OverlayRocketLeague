@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.3.2
+
+- Barras de victorias distribuidas como en Piruleta Studio; margen propio de angular para evitar recortes en todos los BO.
+- Campo Siglas del equipo de hasta cuatro caracteres: sustituye al nombre cuando no cabe, se conserva en perfiles y cambia de lado junto al equipo.
+- Etiquetas y campos de nombre y siglas alineados en Ajustes.
+- Compacto: escudos de 36 px, con sus colores originales, y nombres centrados sin aumentar las dimensiones del marcador.
+- Barra de repetición de Compacto unificada con los demás estilos; patrocinador recolocado para evitar solapamientos.
+- README actualizado con las siglas de equipos.
+
 ## 3.1
 
 - La barra de repetición muestra al goleador y al asistente con sus iconos. El goleador queda centrado cuando no hay asistencia.

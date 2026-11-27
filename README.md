@@ -1,4 +1,4 @@
-# PIRULETA - Overlay 3.1
+# PIRULETA - Overlay 1.3.2
 
 Aplicación de escritorio para Windows para personalizar un overlay de Rocket League y mostrarlo en OBS.
 Recibe tiempo, goles, jugadores, turbo, estadísticas y acciones desde la Stats API del juego.
@@ -95,6 +95,7 @@ En las cajas **Equipo azul** y **Equipo naranja** puedes editar:
 
 - **Victorias de serie:** los botones **+** y **−** permiten corregir el resultado. La suma automática al terminar cada partido se activa en Elementos. Debajo de las cajas se indica el objetivo de victorias y si la serie ha terminado o ha quedado empatada.
 - **Nombre del equipo:** escribe el nombre que quieres mostrar en el overlay y pulsa **Aplicar cambios**.
+- **Siglas del equipo:** hasta cuatro caracteres. Se muestran automáticamente cuando el nombre completo no cabe en el marcador, según el estilo y la tipografía. Si dejas las siglas vacías, se mantiene el nombre con el recorte habitual. Se guardan en el perfil y cambian de lado junto al equipo.
 - **Subir escudo… / Quitar escudo:** selecciona o elimina el logo de ese equipo. Se admiten PNG o JPEG de hasta 4 MB; la caja muestra una miniatura del escudo cargado.
 - **Goles del partido · API:** muestra el resultado recibido del juego. Es informativo: los goles, el tiempo y la prórroga se sincronizan automáticamente y no se editan aquí.
 
@@ -185,7 +186,7 @@ Para actualizar, cierra la app, sustituye el ejecutable y los archivos externos 
 
 ## Historial
 
-Consulta [CHANGELOG.md](CHANGELOG.md). La versión 3.1 añade el asistente y los iconos de gol y asistencia a la barra de repetición.
+Consulta [CHANGELOG.md](CHANGELOG.md). La versión 1.3.2 añade las siglas automáticas de equipos, ajusta las barras de victorias y mejora el marcador y la repetición de Compacto.
 
 ## Contribuidores
 
